@@ -1,0 +1,70 @@
+# cmake_uninstall.cmake.in - 安全卸载脚本
+message(STATUS "Uninstalling from: @CMAKE_INSTALL_PREFIX@")
+
+set(manifest "@CMAKE_CURRENT_BINARY_DIR@/install_manifest.txt")
+
+if(NOT EXISTS "${manifest}")
+    message(WARNING "Cannot find install manifest: ${manifest}")
+    message(WARNING "Perhaps the project was not installed?")
+    return()
+endif()
+
+file(STRINGS "${manifest}" files)
+list(REVERSE files)  # 先删除文件，再尝试删除目录
+
+list(LENGTH files files_count)
+message(STATUS "Found ${files_count} installed files")
+
+# 第一阶段：删除所有文件
+foreach(file IN LISTS files)
+    set(full_path "$ENV{DESTDIR}${file}")
+    
+    if(EXISTS "${full_path}" OR IS_SYMLINK "${full_path}")
+        message(STATUS "Removing: ${full_path}")
+        file(REMOVE "${full_path}")
+        
+        # 检查是否成功删除
+        if(EXISTS "${full_path}")
+            message(WARNING "Failed to remove: ${full_path}")
+        endif()
+    else()
+        message(STATUS "File not found (already removed?): ${full_path}")
+    endif()
+endforeach()
+
+# 第二阶段：尝试删除空目录
+# 从最深目录开始向上删除
+set(directories_to_try "")
+foreach(file IN LISTS files)
+    get_filename_component(dir "$ENV{DESTDIR}${file}" DIRECTORY)
+    
+    # 收集所有父目录直到安装前缀
+    while(dir AND IS_DIRECTORY "${dir}" AND 
+          NOT "${dir}" STREQUAL "@CMAKE_INSTALL_PREFIX@" AND
+          NOT "${dir}" STREQUAL "$ENV{DESTDIR}@CMAKE_INSTALL_PREFIX@")
+        list(APPEND directories_to_try "${dir}")
+        get_filename_component(dir "${dir}" DIRECTORY)
+    endwhile()
+endforeach()
+
+# 去重并反向排序（从最深开始）
+list(REMOVE_DUPLICATES directories_to_try)
+list(SORT directories_to_try)
+list(REVERSE directories_to_try)
+
+foreach(dir IN LISTS directories_to_try)
+    if(EXISTS "${dir}")
+        # 使用file(GLOB)检查目录是否为空
+        file(GLOB_RECURSE remaining_files "${dir}/*")
+        list(LENGTH remaining_files remaining_count)
+        
+        if(remaining_count EQUAL 0)
+            message(STATUS "Removing empty directory: ${dir}")
+            file(REMOVE_RECURSE "${dir}")
+        else()
+            message(STATUS "Directory not empty (${remaining_count} files): ${dir}")
+        endif()
+    endif()
+endforeach()
+
+message(STATUS "Uninstall complete")
