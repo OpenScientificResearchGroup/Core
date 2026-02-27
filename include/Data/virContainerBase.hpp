@@ -19,27 +19,22 @@ namespace core
 		ContainerBase() :ObjectBase()
 		{
 			add<std::string>("uuid", std::string(""));
+			mProperties["uuid"]->setReadOnly(true);
 			add<std::string>("name", std::string(""));
 			add<std::string>("type", std::string(""));
+			mProperties["uuid"]->setReadOnly(true);
 			add<long long>("time_stamp", 0);
+			mProperties["uuid"]->setReadOnly(true);
 			add<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>("containers", std::unordered_map<std::string, std::unique_ptr<ContainerBase>>());
 			// std::unique_ptr<Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>> prop = std::make_unique<Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>>();
 			// addProperty("containers", std::move(prop));
 		}
-
 		virtual ~ContainerBase() = default;
 
-		// 1. 禁止拷贝构造 (因为 unique_ptr 不能拷贝)
-		ContainerBase(const ContainerBase&) = delete;
-
-		// 2. 禁止拷贝赋值 (防止编译器生成导致报错的代码)
-		ContainerBase& operator=(const ContainerBase&) = delete;
-
-		// 3. 允许移动构造 (将所有权转移，这是 unique_ptr 支持的)
-		ContainerBase(ContainerBase&&) = default; // 或者 noexcept
-
-		// 4. 允许移动赋值
-		ContainerBase& operator=(ContainerBase&&) = default; // 或者 noexcept
+		ContainerBase(const ContainerBase&) = delete; // 禁止拷贝构造 (因为 unique_ptr 不能拷贝)
+		ContainerBase& operator=(const ContainerBase&) = delete;// 禁止拷贝赋值 (防止编译器生成导致报错的代码)
+		ContainerBase(ContainerBase&&) = default; // 允许移动构造 (将所有权转移，这是 unique_ptr 支持的)
+		ContainerBase& operator=(ContainerBase&&) = default; // 允许移动赋值
 
 		virtual bool read(const nlohmann::json& j) override
 		{
@@ -53,7 +48,7 @@ namespace core
 				}
 				else
 				{
-					std::unique_ptr<ObjectBase> newProp;
+					std::unique_ptr<PropertyBase> newProp;
 
 					if (value.is_boolean())
 						newProp = std::make_unique<Property<bool>>(false);
@@ -123,12 +118,12 @@ namespace core
 			return get<long long>("time_stamp");
 		}
 
-		virtual const std::unordered_map<std::string, std::unique_ptr<ObjectBase>>& getAllProperties() const
+		virtual const std::unordered_map<std::string, std::unique_ptr<PropertyBase>>& getAllProperties() const
 		{
 			return mProperties;
 		}
 
-		virtual void addProperty(const std::string& key, std::unique_ptr<ObjectBase> prop)
+		virtual void addProperty(const std::string& key, std::unique_ptr<PropertyBase> prop)
 		{
 			if (!prop) return;
 			mProperties[key] = std::move(prop);
@@ -222,6 +217,7 @@ namespace core
 		}
 
 	protected:
-		std::unordered_map<std::string, std::unique_ptr<ObjectBase>> mProperties;
+		std::unordered_map<std::string, std::unique_ptr<PropertyBase>> mProperties;
+
 	};
 }

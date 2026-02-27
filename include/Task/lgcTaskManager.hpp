@@ -11,6 +11,7 @@
 #include <vector>
 
 #include "lgcCancellationToken.hpp"
+#include "Log/lgcLogManager.hpp"
 
 namespace core
 {
@@ -30,21 +31,13 @@ namespace core
 		TaskManager(const TaskManager&) = delete;
 		TaskManager& operator=(const TaskManager&) = delete;
 
-		static void init(const size_t& numThreads = std::thread::hardware_concurrency());
-		
-		static void shutdown();
+		bool init(const size_t& numThreads = std::thread::hardware_concurrency());
+		void shutdown();
 
 		/// <summary>
 		/// 提交一个可取消的任务
 		/// 使用 SFINAE (std::enable_if_t) 来确保只有当函数能以 CancellationToken 作为首个参数调用时，此重载才有效
 		/// </summary>
-		/// <typeparam name="Func"></typeparam>
-		/// <typeparam name="...Args"></typeparam>
-		/// <typeparam name=""></typeparam>
-		/// <param name="priority"></param>
-		/// <param name="func"></param>
-		/// <param name="...args"></param>
-		/// <returns></returns>
 		template <typename Func, typename... Args, std::enable_if_t<std::is_invocable_v<Func, CancellationToken, Args...>, int> = 0>
 		auto add(Priority priority, Func&& func, Args&&... args) -> std::pair<std::future<std::invoke_result_t<Func, CancellationToken, Args...>>, CancellationToken>
 		{
@@ -76,7 +69,10 @@ namespace core
 			auto taskPtr = std::make_shared<std::packaged_task<ReturnType()>>(
 				[func = std::forward<Func>(func), token, capturedArgs = std::move(argsTuple)]() mutable {
 					if (token.isCancellationRequested())
+					{
+						APP_LOG_INFO("[Task Manager]: Task cancelled before execution.");
 						throw std::runtime_error("Task cancelled before execution");
+                    }
 					// 使用 std::apply 解包 tuple 并调用函数
 					return std::apply([&](auto&&... unpackedArgs) {
 						return func(token, std::forward<decltype(unpackedArgs)>(unpackedArgs)...);
@@ -96,18 +92,9 @@ namespace core
 			return { std::move(future), token };
 		}
 
-		/// <summary>
 		/// 提交一个不可取消的任务
 		/// 使用 SFINAE 来确保只有当函数不能以 CancellationToken 作为首个参数调用时，
 		/// 此重载才有效，避免了歧义。
-		/// </summary>
-		/// <typeparam name="Func"></typeparam>
-		/// <typeparam name="...Args"></typeparam>
-		/// <typeparam name=""></typeparam>
-		/// <param name="priority"></param>
-		/// <param name="func"></param>
-		/// <param name="...args"></param>
-		/// <returns></returns>
 		template <typename Func, typename... Args, std::enable_if_t<!std::is_invocable_v<Func, CancellationToken, Args...>, int> = 0>
 		auto add(Priority priority, Func&& func, Args&&... args) -> std::future<std::invoke_result_t<Func, Args...>>
 		{
@@ -138,8 +125,7 @@ namespace core
 
 			{
 				std::unique_lock<std::mutex> lock(mMutex);
-				if (mStop)
-					throw std::runtime_error("TaskManager is stopped");
+				if (mStop) throw std::runtime_error("TaskManager is stopped");
 				mTasks.emplace(Task{ priority, [taskPtr]() { (*taskPtr)(); } });
 			}
 			mCondition.notify_one();
@@ -148,12 +134,12 @@ namespace core
 		}
 
 	private:
-		// 构造函数私有化
-		TaskManager(size_t numThreads);
+		TaskManager(); // 构造函数私有化
 		~TaskManager(); // 析构函数
 
 		void worker();
 
+	private:
 		struct Task
 		{
 			Priority priority;
@@ -163,12 +149,12 @@ namespace core
 			bool operator<(const Task& other) const { return priority < other.priority; }
 		};
 
-		static std::shared_ptr<TaskManager> mInstance;
-		static std::mutex mInitMutex;
+		//static std::shared_ptr<TaskManager> mInstance;
+		//static std::mutex mInitMutex;
 
+		std::mutex mMutex;
 		std::atomic<bool> mStop;
 		std::priority_queue<Task> mTasks;
-		std::mutex mMutex;
 		std::condition_variable mCondition;
 		std::vector<std::thread> mWorkers;
 	};

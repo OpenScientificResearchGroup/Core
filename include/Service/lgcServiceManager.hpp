@@ -3,15 +3,16 @@
 
 #include <functional>
 #include <memory>
-#include <unordered_map>
-#include <typeindex>
 #include <mutex>
 #include <shared_mutex>
-#include <string>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
+#include <typeindex>
+#include <unordered_map>
 
 #include "virServiceBase.hpp"
+#include "Log/lgcLogManager.hpp"
 
 namespace core
 {
@@ -23,6 +24,9 @@ namespace core
 		ServiceManager(const ServiceManager&) = delete;
 		ServiceManager& operator=(const ServiceManager&) = delete;
 
+		bool init();
+		void shutdown();
+
 		template <typename Interface>
 		void registerService(std::shared_ptr<Interface> instance)
 		{
@@ -30,7 +34,10 @@ namespace core
 			std::type_index typeIdx = std::type_index(typeid(Interface));
 
 			if (mServices.find(typeIdx) != mServices.end())
-				throw std::runtime_error("Service already registered...");
+			{
+				APP_LOG_WARN("[Service Manager]: Service already registered: {}", typeid(Interface).name());
+				return;
+			}
 
 			ServiceEntry entry;
 			entry.instance = std::static_pointer_cast<void>(instance);
@@ -53,14 +60,13 @@ namespace core
 			return std::static_pointer_cast<Interface>(it->second.instance);
 		}
 
-		template <typename Interface>
-		std::shared_ptr<Interface> requireService()
-		{
-			auto ptr = getService<Interface>();
-			if (!ptr) throw std::runtime_error("Required service not found: " + std::string(typeid(Interface).name()));
-			return ptr;
-		}
-
+		//template <typename Interface>
+		//std::shared_ptr<Interface> requireService()
+		//{
+		//	auto ptr = getService<Interface>();
+		//	if (!ptr) throw std::runtime_error("Required service not found: " + std::string(typeid(Interface).name()));
+		//	return ptr;
+		//}
 
 		template <typename Interface>
 		void unregisterService()
@@ -86,12 +92,7 @@ namespace core
 			entry.instance = std::static_pointer_cast<void>(instance);
 
 			if constexpr (std::is_base_of_v<ServiceBase, Interface>)
-			{
-				entry.shutdownFunc = [instance]() {
-					if (instance)
-						instance->shutdown();
-					};
-			}
+				entry.shutdownFunc = [instance]() {if (instance)instance->shutdown(); };
 			else
 				entry.shutdownFunc = []() {};
 
@@ -119,22 +120,19 @@ namespace core
 			mNamedServices.erase(key);
 		}
 
-		void shutdownAll();
-
 	private:
 		ServiceManager() = default;
 		~ServiceManager();
 
 	private:
-		struct ServiceEntry {
+		struct ServiceEntry
+		{
 			std::shared_ptr<void> instance;
 			std::function<void()> shutdownFunc;
 		};
 
-		std::unordered_map<std::type_index, ServiceEntry> mServices;
-
-		std::unordered_map<std::string, ServiceEntry> mNamedServices;
-
 		mutable std::shared_mutex mMutex;
+		std::unordered_map<std::type_index, ServiceEntry> mServices;
+		std::unordered_map<std::string, ServiceEntry> mNamedServices;
 	};
 }

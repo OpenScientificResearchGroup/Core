@@ -1,13 +1,15 @@
 #include "Ui/lgcUiManager.hpp"
 
+#include <fstream>
+#include <iostream>
+
 #include <wx/wx.h>
 #include <wx/aui/aui.h>
 #include <wx/artprov.h>
 
 #include <nlohmann/json.hpp>
 
-#include <fstream>
-#include <iostream>
+#include "Log/lgcLogManager.hpp"
 
 namespace core
 {
@@ -19,22 +21,21 @@ namespace core
 
 	UiManager::UiManager()
 	{
-		mNextId = wxID_HIGHEST + 1;
+
 	}
 
 	UiManager::~UiManager()
 	{
-		//if (mAuiMgr)
-		//{
-		//	mAuiMgr->UnInit();
-		//	delete mAuiMgr;
-		//}
 		// double check
 		shutdown();
 	}
 
-	void UiManager::init(const std::string& title, const size_t& width, const size_t& height)
+	bool UiManager::init(const std::string& title, const size_t& width, const size_t& height)
 	{
+		mFrame = nullptr;
+		mAuiMgr = nullptr;
+		mNextId = wxID_HIGHEST + 1;
+
 		mFrame = new wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(width, height));
 		registerAnchor("/Core/main_frame", mFrame);
 
@@ -42,53 +43,7 @@ namespace core
 		mAuiMgr->SetManagedWindow(mFrame);
 		registerAnchor("/Core/aui_manager", mAuiMgr);
 
-		//wxMenuBar* mb = new wxMenuBar();
-
-		//wxMenu* fileMenu = new wxMenu();
-		//fileMenu->Append(wxID_EXIT, "退出(&X)");
-		//mb->Append(fileMenu, "文件(&F)");
-		//registerAnchor("FileMenu", fileMenu);
-
-		//wxMenu* editMenu = new wxMenu();
-		//mb->Append(editMenu, "编辑(&E)");
-		//registerAnchor("EditMenu", editMenu);
-
-		//wxMenu* viewMenu = new wxMenu();
-		//int idReset = getId("Global.Layout.Reset");
-		//viewMenu->Append(idReset, "重置窗口布局");
-		//viewMenu->AppendSeparator();
-		//mb->Append(viewMenu, "插入(&V)");
-		//registerAnchor("ViewMenu", viewMenu);
-
-		//wxMenu* insertMenu = new wxMenu();
-		//mb->Append(insertMenu, "插入(&I)");
-		//registerAnchor("InsertMenu", insertMenu);
-
-		//wxMenu* pluginMenu = new wxMenu();
-		//int idPluginManager = getId("Global.Plugin.Manager");
-		//pluginMenu->Append(idPluginManager, "插件管理器");
-		//pluginMenu->AppendSeparator();
-		//mb->Append(pluginMenu, "插件(&P)");
-		//registerAnchor("PluginMenu", pluginMenu);
-
-		//wxMenu* windowMenu = new wxMenu();
-		//mb->Append(windowMenu, "窗口(&W)");
-		//registerAnchor("WindowMenu", windowMenu);
-
-		//wxMenu* helpMenu = new wxMenu();
-		//helpMenu->Append(wxID_ABOUT, "关于(&A)...");
-		//mb->Append(helpMenu, "帮助(&H)");
-		//registerAnchor("HelpMenu", helpMenu);
-
-		//mFrame->SetMenuBar(mb);
-		//registerAnchor("MenuBar", mb);
-
-		//mFrame->CreateStatusBar();
-		//mFrame->SetStatusText("就绪");
-
-		//mFrame->Bind(wxEVT_MENU, [this](wxCommandEvent&) { close(); }, wxID_EXIT);
-		//mFrame->Bind(wxEVT_MENU, [this](wxCommandEvent&) { resetLayout(); }, idReset);
-		//mFrame->Bind(wxEVT_MENU, [](wxCommandEvent&) { wxMessageBox("Core v1.0"); }, wxID_ABOUT);
+		return true;
 	}
 
 	void UiManager::shutdown()
@@ -107,9 +62,15 @@ namespace core
 
 		// 清理锚点引用，防止野指针
 		{
-			std::lock_guard<std::mutex> lock(mMutex);
+			std::unique_lock<std::shared_mutex> lock(mAnchorMutex);
 			mAnchors.clear();
 		}
+		{
+			std::unique_lock<std::shared_mutex> lock(mIdMutex);
+			mNameToId.clear();
+			mIdToName.clear();
+		}
+		mNextId = 0;
 	}
 
 	void UiManager::show()
@@ -131,54 +92,6 @@ namespace core
 	{
 		return mAuiMgr;
 	}
-
-	//void UiManager::addDockablePane(wxWindow* pane, DockSide side,
-	//	const std::string& title, const std::string& internalName,
-	//	int width, int height, const wxBitmap* icon)
-	//{
-	//	if (!mAuiMgr || !pane) return;
-
-	//	wxAuiPaneInfo info;
-	//	info.Name(internalName).Caption(title)
-	//		.CloseButton(true).MaximizeButton(true).Floatable(true)
-	//		.Dock().Resizable(true);
-
-	//	if (icon) info.Icon(*icon);
-	//	else info.Icon(wxArtProvider::GetBitmap(wxART_REPORT_VIEW, wxART_OTHER, wxSize(16, 16)));
-
-	//	switch (side)
-	//	{
-	//	case DockSide::Left:   info.Left().Layer(1).Position(1).BestSize(width, -1); break;
-	//	case DockSide::Right:  info.Right().Layer(1).Position(1).BestSize(width, -1); break;
-	//	case DockSide::Top:    info.Top().Layer(1).Position(1).BestSize(-1, height); break;
-	//	case DockSide::Bottom: info.Bottom().Layer(1).Position(1).BestSize(-1, height); break;
-	//	case DockSide::Center: info.CenterPane().PaneBorder(false); break;
-	//	}
-
-	//	mAuiMgr->AddPane(pane, info);
-
-	//	if (mDefaultPerspective.empty())
-	//	{
-	//	}
-
-	//	if (side != DockSide::Center)
-	//	{
-	//		wxMenu* viewMenu = getOrAddViewMenu();
-	//		if (viewMenu) {
-	//			int menuId = wxNewId();
-	//			viewMenu->AppendCheckItem(menuId, title);
-	//			viewMenu->Check(menuId, true);
-
-	//			mFrame->Bind(wxEVT_MENU, [this, internalName](wxCommandEvent& e) {
-	//				togglePane(internalName, e.IsChecked());
-	//				}, menuId);
-
-	//			mPaneMenuMap[internalName] = menuId;
-	//		}
-	//	}
-
-	//	mAuiMgr->Update();
-	//}
 
 	void UiManager::registerAnchor(const std::string& anchorId, wxObject* obj)
 	{
@@ -240,7 +153,7 @@ namespace core
 		bool isMax = mFrame->IsMaximized();
 
 		nlohmann::json j;
-		j["app_name"] = "IndustrialCad";
+		j["app_name"] = "App";
 		j["version"] = "1.0";
 		j["window"] = {
 			{"width", w},
@@ -253,11 +166,11 @@ namespace core
 		{
 			std::ofstream o(jsonFilePath);
 			o << std::setw(4) << j << std::endl;
-			std::cout << "[Layout] Saved to " << jsonFilePath << std::endl;
+			APP_LOG_INFO("[Ui Manager]: Layout is saved to {}", jsonFilePath);
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[Layout] Save failed: " << e.what() << std::endl;
+			APP_LOG_ERROR("[Ui Manager]: Layout save failed: {}", e.what());
 		}
 	}
 
@@ -271,7 +184,7 @@ namespace core
 		std::ifstream i(jsonFilePath);
 		if (!i.good())
 		{
-			std::cout << "[Layout] Config not found, using default." << std::endl;
+			APP_LOG_ERROR("[Ui Manager]: Layout file not found, using default.");
 			return;
 		}
 
@@ -295,49 +208,46 @@ namespace core
 				mAuiMgr->LoadPerspective(perspective);
 			}
 
-			// syncMenuState();
-
-			std::cout << "[Layout] Loaded successfully." << std::endl;
+			APP_LOG_INFO("[Ui Manager]: Layout loaded successfully.");
 
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[Layout] Parse failed: " << e.what() << ", using default." << std::endl;
+			APP_LOG_ERROR("[Ui Manager]: Failed to load layout from JSON: {}, using default.", e.what());
 		}
 	}
 
-	//void UiManager::resetLayout()
-	//{
-	//	if (!mDefaultPerspective.empty())
-	//	{
-	//		mAuiMgr->LoadPerspective(mDefaultPerspective);
-	//		syncMenuState();
-	//	}
-	//}
-
-	int UiManager::getId(const std::string& name)
+	size_t UiManager::getId(const std::string& name)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		// 第一次检查：读锁
+		{
+			std::shared_lock<std::shared_mutex> lock(mIdMutex);
+			auto it = mNameToId.find(name);
+			if (it != mNameToId.end())
+				return it->second;
+		}
 
+		// 可能多个线程同时到达这里，需要写锁保护
+		std::unique_lock<std::shared_mutex> lock(mIdMutex);
+		// 第二次检查：防止其他线程已经插入
 		auto it = mNameToId.find(name);
 		if (it != mNameToId.end())
 			return it->second;
 
-		int newId = mNextId++;
-
+		size_t newId = mNextId++;  // 写锁保护下安全
 		mNameToId[name] = newId;
 		mIdToName[newId] = name;
-
 		return newId;
 	}
 
 	bool UiManager::removeId(const std::string& name)
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::unique_lock<std::shared_mutex> lock(mIdMutex);
+		// std::lock_guard<std::mutex> lock(mMutex);
 		auto it = mNameToId.find(name);
 		if (it != mNameToId.end())
 		{
-			int id = it->second;
+			size_t id = it->second;
 			mNameToId.erase(it);
 			mIdToName.erase(id);
 			return true;
@@ -345,48 +255,18 @@ namespace core
 		return false;
 	}
 
-	int UiManager::createAnonymousId()
+	size_t UiManager::createAnonymousId()
 	{
 		return mNextId++;
 	}
 
-	std::string UiManager::getName(int id) const
+	std::string UiManager::getName(size_t id) const
 	{
-		std::lock_guard<std::mutex> lock(mMutex);
+		std::shared_lock<std::shared_mutex> lock(mIdMutex);
+		// std::lock_guard<std::mutex> lock(mMutex);
 		auto it = mIdToName.find(id);
 		if (it != mIdToName.end())
 			return it->second;
 		return "Anonymous_or_Unknown";
 	}
-
-	//void UiManager::syncMenuState()
-	//{
-	//	wxMenu* viewMenu = getOrAddViewMenu();
-	//	if (!viewMenu) return;
-
-	//	for (auto const& [name, menuId] : mPaneMenuMap)
-	//	{
-	//		auto& pane = mAuiMgr->GetPane(name);
-	//		if (pane.IsOk())
-	//			viewMenu->Check(menuId, pane.IsShown());
-	//	}
-	//}
-
-	//void UiManager::togglePane(const std::string& internalName, bool show)
-	//{
-	//	auto& pane = mAuiMgr->GetPane(internalName);
-	//	if (pane.IsOk())
-	//	{
-	//		pane.Show(show);
-	//		mAuiMgr->Update();
-	//	}
-	//}
-
-	//wxMenu* UiManager::getOrAddViewMenu()
-	//{
-	//	if (!mFrame || !mFrame->GetMenuBar()) return nullptr;
-	//	int idx = mFrame->GetMenuBar()->FindMenu("视图(&V)");
-	//	if (idx != wxNOT_FOUND) return mFrame->GetMenuBar()->GetMenu(idx);
-	//	return nullptr;
-	//}
 }

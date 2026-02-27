@@ -1,34 +1,21 @@
 #pragma once
 #include "defCoreApi.hpp"
 
-#include <string>
-#include <map>
-#include <vector>
 #include <functional>
+#include <map>
 #include <memory>
-#include <mutex>
+#include <string>
+#include <vector>
+// #include <mutex>
 #include <atomic>
+#include <shared_mutex>
 
 class wxFrame;
-class wxWindow;
 class wxAuiManager;
-class wxMenu;
-class wxBitmap;
 class wxObject;
-
-//#include <nlohmann/json.hpp>
 
 namespace core
 {
-	//enum class DockSide
-	//{
-	//	Left,
-	//	Right,
-	//	Top,
-	//	Bottom,
-	//	Center
-	//};
-
 	class CORE_API UiManager
 	{
 	public:
@@ -37,16 +24,13 @@ namespace core
 		UiManager(const UiManager&) = delete;
 		UiManager& operator=(const UiManager&) = delete;
 
-		void init(const std::string& title, const size_t& width = 800, const size_t& height = 600);
+		bool init(const std::string& title, const size_t& width = 800, const size_t& height = 600);
 		void shutdown();
+
 		void show();
 		void close();
 		wxFrame* getRootWindow() const;
 		wxAuiManager* getAuiManager() const;
-
-		//void addDockablePane(wxWindow* pane, DockSide side,
-		//	const std::string& title, const std::string& internalName,
-		//	int width = 300, int height = 200, const wxBitmap* icon = nullptr);
 
 		/// ===============================================
 		/// Anchor Management
@@ -63,8 +47,6 @@ namespace core
 		{
 			wxObject* obj = getAnchor(anchorId);
 			if (!obj) return nullptr;
-
-			// return wxDynamicCast(obj, T);
 			return dynamic_cast<T*>(obj);
 		}
 
@@ -78,44 +60,35 @@ namespace core
 
 		void saveLayoutToJson(const std::string& jsonFilePath);
 
-		// void resetLayout();
-
 		/// ===============================================
 		/// ID Management
 		/// ===============================================
 
-		int getId(const std::string& name);
+		size_t getId(const std::string& name);
 
 		bool removeId(const std::string& name);
 
-		int createAnonymousId();
+		size_t createAnonymousId();
 
-		std::string getName(int id) const;
+		std::string getName(size_t id) const;
 
 	private:
 		UiManager();
 		~UiManager();
 
-		// wxMenu* getOrAddViewMenu();
-
-		// void togglePane(const std::string& internalName, bool show);
-
-		// void syncMenuState();
-
 	private:
-		wxFrame* mFrame = nullptr;
-		wxAuiManager* mAuiMgr = nullptr;
+		wxFrame* mFrame;
+		wxAuiManager* mAuiMgr;
 
-		// std::string mDefaultPerspective;
-
-		// std::map<std::string, int> mPaneMenuMap;
-
+		// 考虑读多写少
+		mutable std::shared_mutex mAnchorMutex;
 		std::map<std::string, wxObject*> mAnchors;
 
+		// 考虑到读多写少，
+		mutable std::shared_mutex mIdMutex;
 		std::atomic<size_t> mNextId;
-		std::map<std::string, int> mNameToId;
-		std::map<int, std::string> mIdToName;
-
-		mutable std::mutex mMutex;
+		std::map<std::string, size_t> mNameToId;
+		std::map<size_t, std::string> mIdToName;
+		
 	};
 }

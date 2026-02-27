@@ -20,19 +20,16 @@ namespace core
     class CORE_API Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>> : public PropertyBase
     {
 	protected:
-		std::unordered_map<std::string, std::unique_ptr<ContainerBase>> mValue;
+		std::unordered_map<std::string, std::unique_ptr<ContainerBase>> mVal;
 	public:
 		// Property() = delete;
 
 		explicit Property();
 		explicit Property(const std::unordered_map<std::string, std::unique_ptr<ContainerBase>>& value);
 		
-		// 禁用拷贝构造函数和拷贝赋值运算符
-		Property(const Property&) = delete;
+		Property(const Property&) = delete; // 禁用拷贝构造函数和拷贝赋值运算符
 		Property& operator=(const Property&) = delete;
-
-		// 允许移动
-		Property(Property&&) = default;
+		Property(Property&&) = default; // 允许移动
 		Property& operator=(Property&&) = default;
 
 		/// <summary>

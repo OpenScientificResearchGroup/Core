@@ -3,131 +3,155 @@
 #include <algorithm>
 #include <iostream>
 
+#include "Log/lgcLogManager.hpp"
+
 namespace core
 {
 
-    ResourceManager &ResourceManager::get()
-    {
-        static ResourceManager instance;
-        return instance;
-    }
+	ResourceManager& ResourceManager::get()
+	{
+		static ResourceManager instance;
+		return instance;
+	}
 
-    ResourceManager::~ResourceManager()
-    {
-        clearAll();
-    }
+	ResourceManager::~ResourceManager()
+	{
+		clearAll();
+	}
 
-    void ResourceManager::mount(const std::string &alias, const std::filesystem::path &physicalPath)
-    {
-        std::unique_lock lock(mPathMutex);
+	bool ResourceManager::init()
+	{
+		clearAll();
+		return true;
+	}
 
-        std::string cleanAlias = alias;
-        if (cleanAlias.length() >= 3 && cleanAlias.substr(cleanAlias.length() - 3) == "://")
-            cleanAlias.resize(cleanAlias.length() - 3);
-        else if (!cleanAlias.empty() && cleanAlias.back() == ':')
-            cleanAlias.pop_back();
+	void ResourceManager::shutdown()
+	{
+		clearAll();
+	}
 
-        mAliases[cleanAlias] = std::filesystem::absolute(physicalPath);
-        std::cout << "[ResourceManager] Mounted '" << cleanAlias << "' -> " << physicalPath << std::endl;
-    }
+	void ResourceManager::mount(const std::string& alias, const std::filesystem::path& physicalPath)
+	{
+		std::unique_lock<std::shared_mutex> lock(mAliasMutex);
 
-    void ResourceManager::registerLoader(const std::string &extension, std::function<std::shared_ptr<ResourceBase>(const std::filesystem::path &)> loader)
-    {
-        std::unique_lock lock(mMutex);
-        mLoaders[extension] = loader;
-    }
+		// 规范化别名：去掉末尾的 "://" 或 ":"
+		std::string cleanAlias = alias;
+		if (cleanAlias.length() >= 3 && cleanAlias.substr(cleanAlias.length() - 3) == "://")
+			cleanAlias.resize(cleanAlias.length() - 3);
+		else if (!cleanAlias.empty() && cleanAlias.back() == ':')
+			cleanAlias.pop_back();
 
-    std::optional<std::filesystem::path> ResourceManager::resolvePath(const std::string &logicalPath) const
-    {
-        std::shared_lock lock(mPathMutex);
+		mAliases[cleanAlias] = std::filesystem::absolute(physicalPath);
+		APP_LOG_INFO("[Resource Manager]: Mounted '{}' -> {}", cleanAlias, mAliases[cleanAlias].string());
+	}
 
-        size_t protocolPos = logicalPath.find("://");
-        if (protocolPos != std::string::npos)
-        {
-            std::string prefix = logicalPath.substr(0, protocolPos);
-            std::string suffix = logicalPath.substr(protocolPos + 3);
+	void ResourceManager::registerLoader(const std::string& extension, std::function<std::shared_ptr<ResourceBase>(const std::filesystem::path&)> loader)
+	{
+		std::unique_lock<std::shared_mutex> lock(mLoaderMutex);
+		mLoaders[extension] = loader;
+	}
 
-            auto it = mAliases.find(prefix);
-            if (it != mAliases.end())
-            {
-                std::filesystem::path fullPath = it->second / suffix;
-                return fullPath.make_preferred();
-            }
-        }
+	std::optional<std::filesystem::path> ResourceManager::resolvePath(const std::string& logicalPath) const
+	{
+		std::shared_lock<std::shared_mutex> lock(mAliasMutex);
 
-        std::filesystem::path directPath(logicalPath);
-        if (std::filesystem::exists(directPath))
-            return std::filesystem::absolute(directPath);
+		// Example: "assets://textures/hero.png" -> alias: "assets", suffix: "textures/hero.png"
+		size_t protocolPos = logicalPath.find("://");
+		if (protocolPos != std::string::npos)
+		{
+			std::string prefix = logicalPath.substr(0, protocolPos);
+			std::string suffix = logicalPath.substr(protocolPos + 3);
 
-        return std::nullopt;
-    }
+			auto it = mAliases.find(prefix);
+			if (it != mAliases.end())
+			{
+				std::filesystem::path fullPath = it->second / suffix;
+				return fullPath.make_preferred();
+			}
+		}
 
-    std::shared_ptr<ResourceBase> ResourceManager::loadFromDisk(const std::filesystem::path &path)
-    {
-        std::string ext = path.extension().string();
+		std::filesystem::path directPath(logicalPath);
+		if (std::filesystem::exists(directPath))
+			return std::filesystem::absolute(directPath);
 
-        auto it = mLoaders.find(ext);
-        if (it == mLoaders.end())
-        {
-            std::cerr << "[ResourceManager] No loader registered for extension: " << ext << std::endl;
-            return nullptr;
-        }
+		return std::nullopt;
+	}
 
-        std::cout << "[ResourceManager] Loading from disk: " << path << std::endl;
+	std::shared_ptr<ResourceBase> ResourceManager::loadFromDisk(const std::filesystem::path& path)
+	{
+		std::string ext = path.extension().string();
 
-        try
-        {
-            return it->second(path);
-        }
-        catch (const std::exception &e)
-        {
-            std::cerr << "[ResourceManager] Exception loading " << path << ": " << e.what() << std::endl;
-            return nullptr;
-        }
-    }
+		auto it = mLoaders.find(ext);
+		if (it == mLoaders.end())
+		{
+			APP_LOG_ERROR("[Resource Manager] No loader registered for extension: {}", ext);
+			return nullptr;
+		}
 
-    void ResourceManager::reload(const std::string &logicalPath)
-    {
-        auto physicalPath = resolvePath(logicalPath);
-        if (!physicalPath)
-            return;
+		APP_LOG_INFO("[Resource Manager] Loading from disk: {}", path.string());
 
-        std::unique_lock lock(mMutex);
-        std::string key = physicalPath->string();
+		try
+		{
+			return it->second(path);
+		}
+		catch (const std::exception& e)
+		{
+			APP_LOG_ERROR("[Resource Manager] Exception loading {}: {}", path.string(), e.what());
+			return nullptr;
+		}
+	}
 
-        mResources.erase(key);
+	void ResourceManager::reload(const std::string& logicalPath)
+	{
+		auto physicalPath = resolvePath(logicalPath);
+		if (!physicalPath) return;
 
-        std::shared_ptr<ResourceBase> newRes = loadFromDisk(physicalPath.value());
-        if (newRes)
-        {
-            newRes->setName(logicalPath);
-            mResources[key] = newRes;
-        }
-    }
+		std::unique_lock<std::shared_mutex> lock(mResourceMutex);
+		std::string key = physicalPath->string();
 
-    void ResourceManager::unloadUnused()
-    {
-        std::unique_lock lock(mMutex);
+		mResources.erase(key);
 
-        size_t count = 0;
-        for (auto it = mResources.begin(); it != mResources.end();)
-        {
-            if (it->second.use_count() == 1)
-            {
-                std::cout << "[ResourceManager] GC releasing: " << it->second->getName() << std::endl;
-                it = mResources.erase(it);
-                count++;
-            }
-            else
-                ++it;
-        }
-        if (count > 0)
-            std::cout << "[ResourceManager] GC finished. Released " << count << " resources." << std::endl;
-    }
+		std::shared_ptr<ResourceBase> newRes = loadFromDisk(physicalPath.value());
+		if (newRes)
+		{
+			newRes->setName(logicalPath);
+			mResources[key] = newRes;
+		}
+	}
 
-    void ResourceManager::clearAll()
-    {
-        std::unique_lock lock(mMutex);
-        mResources.clear();
-    }
+	void ResourceManager::unloadUnused()
+	{
+		std::unique_lock<std::shared_mutex> lock(mResourceMutex);
+
+		size_t count = 0;
+		for (auto it = mResources.begin(); it != mResources.end();)
+		{
+			if (it->second.use_count() == 1)
+			{
+				APP_LOG_INFO("[Resource Manager]: Garbage Collector releasing: {}", it->second->getName());
+				it = mResources.erase(it);
+				count++;
+			}
+			else
+				++it;
+		}
+		if (count > 0)
+			APP_LOG_INFO("[Resource Manager]: Garbage Collector finished. Released {} resources.", count);
+	}
+
+	void ResourceManager::clearAll()
+	{
+		{
+			std::unique_lock<std::shared_mutex> lock(mResourceMutex);
+			mResources.clear();
+		}
+		{
+			std::unique_lock<std::shared_mutex> lock(mLoaderMutex);
+			mLoaders.clear();
+		}
+		{
+			std::unique_lock<std::shared_mutex> lock(mAliasMutex);
+			mAliases.clear();
+		}
+	}
 } // namespace Core

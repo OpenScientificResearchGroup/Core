@@ -56,7 +56,9 @@ namespace core
 		{
 			return getValue();
 		}
+
 	protected:
 		T mVal;
+
 	};
 }

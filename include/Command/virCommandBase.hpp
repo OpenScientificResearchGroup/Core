@@ -12,12 +12,9 @@ namespace core
 		CommandBase() = default;
 		virtual ~CommandBase() = default;
 
-		// 基类也禁用拷贝，防止切片问题
-		CommandBase(const CommandBase&) = delete;
+		CommandBase(const CommandBase&) = delete; // 基类禁用拷贝，防止切片问题
 		CommandBase& operator=(const CommandBase&) = delete;
-
-		// 默认构造和移动通常需要保留
-		CommandBase(CommandBase&&) = default;
+		CommandBase(CommandBase&&) = default; // 默认构造和移动通常需要保留
 		CommandBase& operator=(CommandBase&&) = default;
 
 		// --- 1. 核心逻辑 ---
@@ -34,7 +31,7 @@ namespace core
 		// --- 2. UI 交互支持 ---
 		// 获取命令名称，用于在菜单中显示。
 		// 例如：菜单显示 "撤销 移动对象" (Undo Move Object)
-		virtual std::string getLabel() const = 0;
+		virtual std::string getName() const = 0;
 
 		// --- 3. 性能优化 (命令合并) ---
 		// 用于将连续的微小操作合并为一个。
@@ -48,7 +45,7 @@ namespace core
 		// --- 4. 识别与分类 ---
 		// 获取命令的唯一 ID 或类型。
 		// 用于判断两个命令是否属于同一种类，辅助 MergeWith 判断。
-		virtual std::string getId() const { return "-1"; }
+		virtual std::string getId() const = 0;
 
 		// --- 5. 内存管理 (可选，针对大型数据) ---
 		// 返回该命令占用的内存大小（估算）。

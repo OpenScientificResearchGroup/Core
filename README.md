@@ -1,19 +1,15 @@
 # Core
 
-<!-- ![Build Status](https://img.shields.io/badge/build-passing-brightgreen) -->
+![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
 ![License](https://img.shields.io/badge/license-MIT-blue)
 ![Standard](https://img.shields.io/badge/c%2B%2B-17%2F20-blue)
 <!-- ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey) -->
 
-A Production-Ready, Modular Desktop Application Framework based on Modern C++ & wxWidgets.
-
-**⚠️ Warning: This project is in early development and may be unstable.**
-
-## Introduction
+[简体中文](README_CN.md)
 
 **Core** is a high-performance, industrial-grade C++ software microkernel architecture designed for building modular and scalable desktop applications.
 
-Core decouples core business logic from the underlying infrastructure by implementing a strictly layered architecture. With a built-in comprehensive Manager system, developers can focus on plugin development and business implementation without worrying about the complexity of the underlying framework.
+It decouples core business logic from the underlying infrastructure by implementing a strictly layered architecture. With a built-in comprehensive Manager system, developers can focus on plugin development and business implementation without worrying about the complexity of the underlying framework.
 
 ## Core Features
 
@@ -27,8 +23,6 @@ The architecture is centered around a Microkernel that orchestrates the followin
 *   **💾 Data Manager**: Abstracted data persistence layer.
 *   **🎨 Ui Manager**: Cross-platform UI lifecycle management (powered by wxWidgets).
 *   **🛠️ Service / Task / Command / Resource Managers**: Complete infrastructure for background tasks, command patterns, and resource pooling.
-
-<!-- ## Architecture -->
 
 ## Dependencies
 
@@ -58,27 +52,54 @@ cmake -B build -S . -DCMAKE_TOOLCHAIN_FILE=[path/to/vcpkg]/scripts/buildsystems/
 
 # Build
 cmake --build build --config Release
-```
+``` -->
 
 ## Usage Example
 
 ```cpp
-#include "Kernel.h"
-#include "managers/LogManager.h"
+// winMain.hpp
+#pragma once
+#include <wx/wx.h>
 
-int main() {
-    auto& kernel = Core::Kernel::instance();
-    kernel.init();
+class App : public wxApp
+{
+public:
+	virtual bool OnInit() override;
+	virtual int OnExit() override;
+};
+```
 
-    // Use the Log Manager
-    LOG_INFO("Kernel initialized successfully.");
+```cpp
+// winMain.cpp
+#include "winMain.hpp"
 
-    // Fire an event
-    kernel.getEventManager()->publish("app_start", {{"timestamp", 123456}});
+#include <wx/wx.h>
 
-    return kernel.run();
+#include "lgcCore.hpp"
+
+wxIMPLEMENT_APP(win::App);
+
+bool App::OnInit()
+{
+	wxInitAllImageHandlers();
+	core::initializeCore(
+		"Test",
+		"./user_conf.json",
+		"./core_conf.json",
+		"./CorePlugins",
+		"./UserPlugins"
+	);
+	core::UiManager::get().show();
+	SetTopWindow(core::UiManager::get().getRootWindow());
+	return true;
 }
-``` -->
+
+int App::OnExit()
+{
+	core::shutdownCore();
+	return 0;
+}
+```
 
 ## License
 

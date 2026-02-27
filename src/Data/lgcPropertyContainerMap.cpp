@@ -28,33 +28,33 @@ namespace core
 	void Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		setValue(const std::unordered_map<std::string, std::unique_ptr<ContainerBase>>& val)
 	{
-		// mValue = val;
+		// mVal = val;
 	}
 
 	const std::unordered_map<std::string, std::unique_ptr<ContainerBase>>& Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		getValue() const
 	{
-		return mValue;
+		return mVal;
 		// return {};
 	}
 
 	const std::any Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		getValueAny() const
 	{
-		// return mValue;
+		// return mVal;
 		return {};
 	}
 
 	void Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		add(const std::string& key, std::unique_ptr<ContainerBase> feature)
 	{
-		mValue[key] = std::move(feature);
+		mVal[key] = std::move(feature);
 	}
 
 	void Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		remove(const std::string& key)
 	{
-		mValue.erase(key);
+		mVal.erase(key);
 	}
 
 	//PropertyAttribute Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
@@ -73,7 +73,7 @@ namespace core
 	Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		operator std::unordered_map<std::string, std::unique_ptr<ContainerBase>>() const
 	{
-		// return mValue;
+		// return mVal;
 		return {};
 	}
 
@@ -90,7 +90,7 @@ namespace core
 	bool Property<std::unordered_map<std::string, std::unique_ptr<ContainerBase>>>::
 		read(const nlohmann::json& j)
 	{
-		mValue.clear();
+		mVal.clear();
 
 		// 1. 类型检查：必须是数组
 		// 注意：这里假设传入的 j 已经是那个数组节点了
@@ -132,7 +132,7 @@ namespace core
 
 				// 5. 存入 unordered_map
 				// 此时 map 的 key 是我们手动从 JSON 里拿出来的 uuid
-				mValue[uuid] = std::move(newContainer);
+				mVal[uuid] = std::move(newContainer);
 			}
 			//else
 			//	std::cerr << "[Error] Unknown shape type: " << typeStr << std::endl;
@@ -144,7 +144,7 @@ namespace core
 		write() const
 	{
 		nlohmann::json prop = nlohmann::json::array();
-		for (const auto& [key, value] : mValue)
+		for (const auto& [key, value] : mVal)
 		{
 			nlohmann::json feature;
 			if (value)

@@ -8,6 +8,10 @@
 #include "Task/lgcTaskManager.hpp"
 #include "Ui/lgcUiManager.hpp"
 #include "Service/lgcServiceManager.hpp"
+#include "Data/lgcDataManager.hpp"
+#include "Event/lgcEventManager.hpp"
+#include "I18n/lgcI18nManager.hpp"
+#include "Resource/lgcResourceManager.hpp"
 
 namespace core
 {
@@ -27,18 +31,27 @@ namespace core
 			ConfigManager::get().getValue<size_t>("/Core/log/max_files"),
 			ConfigManager::get().getValue<bool>("/Core/log/console_out")
 		);
-		TaskManager::init(ConfigManager::get().getValue<size_t>("/Core/task/num_threads"));
+		TaskManager::get().init(ConfigManager::get().getValue<size_t>("/Core/task/num_threads"));
+		ServiceManager::get().init();
+		DataManager::get().init();
+		EventManager::get().init();
+		I18nManager::get().init(ConfigManager::get().getValue<std::string>("/Core/i18n/locale"));
+		ResourceManager::get().init();
 		UiManager::get().init(appName);
 		PluginManager::get().init(corePluginsDir, userPluginsDir);
-		ServiceManager::get();
+
 	}
 
 	void shutdownCore()
 	{
-		ServiceManager::get().shutdownAll();
 		PluginManager::get().shutdown();
 		UiManager::get().shutdown();
-		TaskManager::shutdown();
+		ResourceManager::get().shutdown();
+		I18nManager::get().shutdown();
+		EventManager::get().shutdown();
+		DataManager::get().shutdown();
+		ServiceManager::get().shutdown();
+		TaskManager::get().shutdown();
 		LogManager::shutdown();
 	}
 }

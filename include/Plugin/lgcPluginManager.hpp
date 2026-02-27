@@ -79,6 +79,7 @@ namespace core
 	{
 	public:
 		static PluginManager& get();
+
 		PluginManager(const PluginManager&) = delete;
 		PluginManager& operator=(const PluginManager&) = delete;
 
@@ -87,7 +88,7 @@ namespace core
 		/// <summary>
 		/// 初始化系统：读取清单 -> 完整性检查 -> 预加载 Core 插件
 		/// </summary>
-		void init(const std::string& coreDir, const std::string& userDir);
+		bool init(const std::string& coreDir, const std::string& userDir);
 
 		/// <summary>
 		/// 关闭系统：卸载所有插件
@@ -160,19 +161,14 @@ namespace core
 		bool extractZip(const std::string& zipPath, const std::string& destDir);
 
 	private:
-		//const std::string CORE_MANIFEST_FILE = "CorePlugins/core_manifest.json";
-		//const std::string USER_MANIFEST_FILE = "UserPlugins/user_manifest.json";
 		std::string mCoreManifestFile;
 		std::string mUserManifestFile;
-
 		std::filesystem::path mCoreDir;
 		std::filesystem::path mUserDir;
 
-		// 插件表: ID -> Instance
-		std::map<std::string, std::shared_ptr<PluginInstance>> mPlugins;
-		// 记录缺失的核心插件
-		std::vector<std::string> mMissingCorePlugins;
-		// 记录加载顺序 (用于反向卸载)
-		std::vector<std::string> mLoadOrder;
+		
+		std::map<std::string, std::shared_ptr<PluginInstance>> mPlugins; // 插件表: ID -> Instance
+		std::vector<std::string> mMissingCorePlugins; // 记录缺失的核心插件
+		std::vector<std::string> mLoadOrder; // 记录加载顺序 (用于反向卸载)
 	};
 }

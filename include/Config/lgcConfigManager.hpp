@@ -1,17 +1,18 @@
 #pragma once
 #include "defCoreApi.hpp"
 
-#include <string>
-#include <vector>
+#include <filesystem>
 #include <map>
 #include <mutex>
-#include <shared_mutex>
-#include <filesystem>
 #include <optional>
+#include <shared_mutex>
+#include <string>
 #include <typeinfo>
+#include <vector>
 
-// 引入 nlohmann/json
-#include "nlohmann/json.hpp"
+#include <nlohmann/json.hpp>
+
+#include "Log/lgcLogManager.hpp"
 
 namespace core
 {
@@ -32,13 +33,18 @@ namespace core
 	public:
 		static ConfigManager& get();
 
+		// 禁止复制和赋值
 		ConfigManager(const ConfigManager&) = delete;
 		ConfigManager& operator=(const ConfigManager&) = delete;
 
 		/// <summary>
 		/// 初始化并加载配置文件
 		/// </summary>
+		/// <param name="filePath">用户修改的配置文件路径</param>
+		/// <param name="coreFilePath">Core默认配置文件路径</param>
+		/// <returns></returns>
 		bool init(const std::string& filePath, const std::string& coreFilePath);
+		void shutdown();
 
 		/// <summary>
 		/// 读取默认配置文件 (Schema)
@@ -78,16 +84,28 @@ namespace core
 			const nlohmann::json* node = traverse(mUserConfig, key, false);
 			if (node && !node->is_null())
 			{
-				try { return node->get<T>(); }
-				catch (...) {}
+				try
+				{
+					return node->get<T>();
+				}
+				catch (...)
+				{
+
+				}
 			}
 
 			// 2. 尝试从注册表(Schema Layer)读取默认值
 			auto it = mSchema.find(key);
 			if (it != mSchema.end())
 			{
-				try { return it->second.defaultValue.get<T>(); }
-				catch (...) {}
+				try
+				{
+					return it->second.defaultValue.get<T>();
+				}
+				catch (...)
+				{
+
+				}
 			}
 
 			// 3. 硬编码兜底
@@ -140,11 +158,10 @@ namespace core
 		// 路径遍历辅助函数
 		nlohmann::json* traverse(nlohmann::json& root, const std::string& key, bool createIfMissing);
 		const nlohmann::json* traverse(const nlohmann::json& root, const std::string& key, bool createIfMissing) const;
-		// std::vector<std::string> split(const std::string& s, char delimiter) const;
 
-		std::filesystem::path mFilePath;
-
-		nlohmann::json mUserConfig; // 对应 settings.json (只存用户修改过的)
+	private:
+		std::filesystem::path mUserConfigPath;
+		nlohmann::json mUserConfig; // 只存用户修改过的
 		std::map<std::string, ConfigOption> mSchema; // 对应插件注册的全量默认值
 
 		mutable std::shared_mutex mMutex; // 读写锁

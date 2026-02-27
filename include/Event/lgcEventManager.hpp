@@ -1,128 +1,143 @@
 #pragma once
 #include "defCoreApi.hpp"
 
-#include <functional>
-#include <unordered_map>
-#include <typeindex>
 #include <any>
+#include <atomic>
+#include <functional>
+#include <iostream>
 #include <mutex>
 #include <shared_mutex>
-#include <atomic>
 #include <string>
-#include <iostream>
+#include <typeindex>
+#include <unordered_map>
+
+#include "Log/lgcLogManager.hpp"
 
 namespace core
 {
-    class CORE_API EventManager
-    {
-    public:
-        static EventManager& get();
+	class CORE_API EventManager
+	{
+	public:
+		static EventManager& get();
 
-        EventManager(const EventManager &) = delete;
-        EventManager &operator=(const EventManager &) = delete;
+		EventManager(const EventManager&) = delete;
+		EventManager& operator=(const EventManager&) = delete;
 
-        template <typename EventType>
-        size_t subscribe(const std::string &topic, std::function<void(const EventType &)> callback)
-        {
-            std::unique_lock<std::shared_mutex> lock(mMutex);
+		bool init();
+		void shutdown();
 
-            std::type_index typeIdx = std::type_index(typeid(EventType));
-            size_t id = ++mNextId;
+		template <typename EventType>
+		size_t subscribe(const std::string& topic, std::function<void(const EventType&)> callback)
+		{
+			std::unique_lock<std::shared_mutex> lock(mMutex);
 
-            auto &typeMap = mSubscribers[topic];
+			std::type_index typeIdx = std::type_index(typeid(EventType));
+			size_t id = ++mNextId;
 
-            if (typeMap.find(typeIdx) == typeMap.end())
-                typeMap[typeIdx] = std::unordered_map<size_t, std::function<void(const EventType &)>>();
+			auto& typeMap = mSubscribers[topic];
 
-            auto &handlers = std::any_cast<std::unordered_map<size_t, std::function<void(const EventType &)>> &>(typeMap[typeIdx]);
-            handlers[id] = std::move(callback);
+			if (typeMap.find(typeIdx) == typeMap.end())
+				typeMap[typeIdx] = std::unordered_map<size_t, std::function<void(const EventType&)>>();
 
-            mIdLookup[id] = {topic, typeIdx};
+			auto& handlers = std::any_cast<std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeMap[typeIdx]);
+			handlers[id] = std::move(callback);
 
-            return id;
-        }
+			mIdLookup[id] = { topic, typeIdx };
 
-        template <typename EventType>
-        size_t subscribe(std::function<void(const EventType &)> callback)
-        {
-            return subscribe<EventType>("", std::move(callback));
-        }
+			return id;
+		}
 
-        template <typename EventType>
-        void publish(const std::string &topic, const EventType &event)
-        {
-            std::shared_lock<std::shared_mutex> lock(mMutex);
+		template <typename EventType>
+		size_t subscribe(std::function<void(const EventType&)> callback)
+		{
+			return subscribe<EventType>("", std::move(callback));
+		}
 
-            auto topicIt = mSubscribers.find(topic);
-            if (topicIt == mSubscribers.end())
-                return;
+		template <typename EventType>
+		void publish(const std::string& topic, const EventType& event, const size_t& excludedId = 0)
+		{
+			std::shared_lock<std::shared_mutex> lock(mMutex);
 
-            std::type_index typeIdx = std::type_index(typeid(EventType));
-            const auto &typeMap = topicIt->second;
+			auto topicIt = mSubscribers.find(topic);
+			if (topicIt == mSubscribers.end())
+				return;
 
-            auto typeIt = typeMap.find(typeIdx);
-            if (typeIt == typeMap.end())
-                return;
+			std::type_index typeIdx = std::type_index(typeid(EventType));
+			const auto& typeMap = topicIt->second;
 
-            try
-            {
-                const auto &handlers = std::any_cast<const std::unordered_map<size_t, std::function<void(const EventType &)>> &>(typeIt->second);
-                for (const auto &[id, callback] : handlers)
-                    if (callback)
-                        callback(event);
-            }
-            catch (const std::bad_any_cast &)
-            {
-            }
-        }
+			auto typeIt = typeMap.find(typeIdx);
+			if (typeIt == typeMap.end())
+				return;
 
-        template <typename EventType>
-        void publish(const EventType &event)
-        {
-            publish<EventType>("", event);
-        }
+			try
+			{
+				const auto& handlers = std::any_cast<const std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeIt->second);
+				for (const auto& [id, callback] : handlers)
+				{
+					if (id == excludedId) continue;
+					if (callback) callback(event);
+				}
+			}
+			catch (const std::bad_any_cast&)
+			{
+				APP_LOG_ERROR("[Event Manager]: Type mismatch when publishing event of type {} on topic '{}'", typeid(EventType).name(), topic);
+			}
+		}
 
-        template <typename EventType>
-        void unsubscribe(size_t id)
-        {
-            std::unique_lock<std::shared_mutex> lock(mMutex);
+		template <typename EventType>
+		void publish(const EventType& event, const size_t& excludedId = 0)
+		{
+			publish<EventType>("", event, excludedId);
+		}
 
-            auto lookupIt = mIdLookup.find(id);
-            if (lookupIt == mIdLookup.end()) return;
+		template <typename EventType>
+		void unsubscribe(size_t id)
+		{
+			std::unique_lock<std::shared_mutex> lock(mMutex);
 
-            std::string topic = lookupIt->second.topic;
+			auto lookupIt = mIdLookup.find(id);
+			if (lookupIt == mIdLookup.end()) return;
 
-            auto topicIt = mSubscribers.find(topic);
-            if (topicIt != mSubscribers.end())
-            {
-                auto &typeMap = topicIt->second;
-                std::type_index typeIdx = std::type_index(typeid(EventType));
-                auto typeIt = typeMap.find(typeIdx);
-                if (typeIt != typeMap.end())
-                {
-                    auto &handlers = std::any_cast<std::unordered_map<size_t, std::function<void(const EventType &)>> &>(typeIt->second);
-                    handlers.erase(id);
-                }
-            }
+			std::string topic = lookupIt->second.topic;
 
-            mIdLookup.erase(id);
-        }
+			auto topicIt = mSubscribers.find(topic);
+			if (topicIt != mSubscribers.end())
+			{
+				auto& typeMap = topicIt->second;
+				std::type_index typeIdx = std::type_index(typeid(EventType));
+				auto typeIt = typeMap.find(typeIdx);
+				if (typeIt != typeMap.end())
+				{
+					auto& handlers = std::any_cast<std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeIt->second);
+					handlers.erase(id);
+				}
+			}
 
-    private:
-        EventManager();
-        ~EventManager();
+			mIdLookup.erase(id);
+		}
 
-        struct HandlerInfo
-        {
-            std::string topic;
-            std::type_index type;
-        };
+	private:
+		EventManager();
+		~EventManager();
 
-        std::unordered_map<std::string, std::unordered_map<std::type_index, std::any>> mSubscribers;
+	private:
+		struct HandlerInfo
+		{
+			std::string topic;
+			std::type_index type;
 
-        std::unordered_map<size_t, HandlerInfo> mIdLookup;
+			// 默认构造函数
+			HandlerInfo() : type(typeid(void)) {}  // 用 void 作为占位符
 
-        std::atomic<size_t> mNextId;
-        mutable std::shared_mutex mMutex;
-    };
+			// 带参数的构造函数（方便使用）
+			HandlerInfo(const std::string& t, const std::type_index& ti)
+				: topic(t), type(ti) {}
+		};
+
+		mutable std::shared_mutex mMutex;
+		std::unordered_map<std::string, std::unordered_map<std::type_index, std::any>> mSubscribers;
+		std::unordered_map<size_t, HandlerInfo> mIdLookup;
+		std::atomic<size_t> mNextId;
+
+	};
 }

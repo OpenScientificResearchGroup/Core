@@ -17,29 +17,42 @@ namespace core
 		return instance;
 	}
 
-	bool ConfigManager::init(const std::string& filePath, const std::string& coreFilePath)
+	bool ConfigManager::init(const std::string& userConfigPath, const std::string& coreConfigPath)
 	{
-		std::unique_lock<std::shared_mutex> lock(mMutex);
-		mFilePath = filePath;
-
-		// 确保目录存在
-		if (mFilePath.has_parent_path())
 		{
-			try
+			std::unique_lock<std::shared_mutex> lock(mMutex);
+			mUserConfigPath = userConfigPath;
+
+			// 确保目录存在
+			if (mUserConfigPath.has_parent_path())
 			{
-				std::filesystem::create_directories(mFilePath.parent_path());
-			}
-			catch (...)
-			{
+				try
+				{
+					std::filesystem::create_directories(mUserConfigPath.parent_path());
+				}
+				catch (...)
+				{
+					APP_LOG_ERROR("[Configure Manager]: Failed to create user configuration directory: {}.", mUserConfigPath.parent_path().string());
+					return false;
+				}
 			}
 		}
 
-		// 内部解锁调用 load，避免死锁 (load 会自己加锁，但我们这里已经是初始化阶段，其实可以直接调逻辑)
-		// 为了复用代码，我们把 load 逻辑展开或暂时释放锁
-		lock.unlock();
 		load();
-		if (!readDefaultValue(coreFilePath)) return false;
+		if (!readDefaultValue(coreConfigPath))
+		{
+			APP_LOG_CRITICAL("[Configure Manager]: Failed to read Core default configuration. Core initialization failed.");
+			return false;
+		}
+
 		APP_LOG_INFO("[Configure Manager]: Configure Manager initialized successfully.");
+	}
+
+	void ConfigManager::shutdown()
+	{
+		std::unique_lock<std::shared_mutex> lock(mMutex);
+		mUserConfig = nlohmann::json::object();
+		mSchema.clear();
 	}
 
 	bool ConfigManager::readDefaultValue(const std::string& path)
@@ -48,15 +61,14 @@ namespace core
 
 		if (!i.is_open())
 		{
-			APP_LOG_ERROR("[Log Manager]: : Could not open {}", path);
-			// std::cerr << "Error: Could not open data.json" << std::endl;
+			APP_LOG_ERROR("[Configure Manager]: Could not open default configuration file: {}", path);
 			return false;
 		}
 
 		try
 		{
 			nlohmann::json data;
-			// 2. 使用输入操作符 (>>) 直接从文件流读取
+			// 使用输入操作符 (>>) 直接从文件流读取
 			i >> data;
 
 			// 定义递归 lambda 函数来遍历 JSON 树
@@ -76,7 +88,7 @@ namespace core
 					std::string description = j.value("description", "");
 
 					// 调用你的注册函数
-					// currentKey 此时类似于 "Core/log/path"
+					// currentKey 此时类似于 "/Core/log/path"
 					// 注意：这里 value 是 nlohmann::json 类型，registerOption 需要能接受它
 					registerOption(currentKey, value, description);
 
@@ -107,14 +119,12 @@ namespace core
 		}
 		catch (const nlohmann::json::parse_error& e)
 		{
-			APP_LOG_ERROR("[Configure Manager]: Failed to parse default core configuration: {}", e.what());
-			// std::cerr << "JSON parse error in file: " << e.what() << '\n';
+			APP_LOG_ERROR("[Configure Manager]: Failed to parse default configuration: {}", e.what());
 			return false;
 		}
 		catch (const nlohmann::json::exception& e)
 		{
-			APP_LOG_ERROR("[Configure Manager]: Failed to access default core configuration: {}", e.what());
-			// std::cerr << "JSON access error in file: " << e.what() << '\n';
+			APP_LOG_ERROR("[Configure Manager]: Failed to access default configuration: {}", e.what());
 			return false;
 		}
 	}
@@ -122,16 +132,16 @@ namespace core
 	bool ConfigManager::load()
 	{
 		std::unique_lock<std::shared_mutex> lock(mMutex);
-		if (!std::filesystem::exists(mFilePath))
+		if (!std::filesystem::exists(mUserConfigPath))
 		{
-			APP_LOG_ERROR("[Configure Manager]: Can not open default configure.");
+			APP_LOG_ERROR("[Configure Manager]: Can not open user configure.");
 			mUserConfig = nlohmann::json::object();
 			return false;
 		}
 
 		try
 		{
-			std::ifstream file(mFilePath);
+			std::ifstream file(mUserConfigPath);
 			if (file.is_open())
 			{
 				file >> mUserConfig;
@@ -140,7 +150,7 @@ namespace core
 		}
 		catch (const std::exception& e)
 		{
-			APP_LOG_WARN("[Configure Manager]: Failed to load default configuration: {}.", e.what());
+			APP_LOG_WARN("[Configure Manager]: Failed to load user configuration: {}.", e.what());
 			APP_LOG_INFO("[Configure Manager]: Reset to empty configuration.");
 			mUserConfig = nlohmann::json::object(); // 容错：解析失败则置空
 		}
@@ -155,7 +165,7 @@ namespace core
 
 		try
 		{
-			std::ofstream file(mFilePath);
+			std::ofstream file(mUserConfigPath);
 			if (file.is_open())
 			{
 				file << mUserConfig.dump(4); // 缩进4空格
@@ -164,7 +174,7 @@ namespace core
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "[Config] Save failed: " << e.what() << std::endl;
+			APP_LOG_ERROR("[Configure Manager]: Failed to save user configuration: {}.", e.what());
 		}
 		return false;
 	}
@@ -173,43 +183,49 @@ namespace core
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 
-		// 1. 尝试从注册表(Schema Layer)读取值
+		// 尝试从注册表(Schema Layer)读取值
 		auto it = mSchema.find(key);
 		if (it != mSchema.end())
 		{
-			try { return it->second.description; }
-			catch (...) {}
+			try
+			{
+				return it->second.description;
+			}
+			catch (...)
+			{
+				APP_LOG_ERROR("[Configure Manager]: Failed to get description for key: {}.", key);
+			}
 		}
 
-		// 4. 类型默认构造
+		// 默认构造
 		return "";
 	}
 
 	void ConfigManager::reset(const std::string& key)
 	{
-		std::unique_lock<std::shared_mutex> lock(mMutex);
-
-		auto parts = util::string::split(key, SEPARATOR);
-		if (parts.empty()) return;
-
-		nlohmann::json* current = &mUserConfig;
-
-		// 找到父节点
-		for (size_t i = 0; i < parts.size() - 1; ++i)
 		{
-			if (current->contains(parts[i]))
-				current = &((*current)[parts[i]]);
-			else
-				return; // 路径本来就不存在，无需删除
+			std::unique_lock<std::shared_mutex> lock(mMutex);
+
+			auto parts = util::string::split(key, SEPARATOR);
+			if (parts.empty()) return;
+
+			nlohmann::json* current = &mUserConfig;
+
+			// 找到父节点
+			for (size_t i = 0; i < parts.size() - 1; ++i)
+			{
+				if (current->contains(parts[i]))
+					current = &((*current)[parts[i]]);
+				else
+					return; // 路径本来就不存在，无需删除
+			}
+
+			// 删除目标 Key
+			std::string lastKey = parts.back();
+			if (current->contains(lastKey))
+				current->erase(lastKey);
 		}
 
-		// 删除目标 Key
-		std::string lastKey = parts.back();
-		if (current->contains(lastKey))
-			current->erase(lastKey);
-
-		// 释放锁并保存 (save 内部会再次获取读锁，所以这里先释放写锁)
-		lock.unlock();
 		save();
 	}
 
@@ -224,18 +240,6 @@ namespace core
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		return mUserConfig.dump(4);
 	}
-
-	// --- Private Helpers ---
-
-	//std::vector<std::string> ConfigManager::split(const std::string& s, char delimiter) const
-	//{
-	//	std::vector<std::string> tokens;
-	//	std::string token;
-	//	std::istringstream tokenStream(s);
-	//	while (std::getline(tokenStream, token, delimiter))
-	//		if (!token.empty()) tokens.push_back(token);
-	//	return tokens;
-	//}
 
 	// const 版本 (用于 get)
 	const nlohmann::json* ConfigManager::traverse(const nlohmann::json& root, const std::string& key, bool /*create*/) const

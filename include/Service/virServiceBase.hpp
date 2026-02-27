@@ -11,9 +11,7 @@ namespace core
         virtual ~ServiceBase() = default;
 
         virtual bool init() { return true; }
-
         virtual void shutdown() {}
-
         virtual const std::string& getName() const = 0;
     };
 }

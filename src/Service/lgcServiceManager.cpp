@@ -11,31 +11,47 @@ namespace core
 
 	ServiceManager::~ServiceManager()
 	{
-		shutdownAll();
+		shutdown();
 	}
 
-	void ServiceManager::shutdownAll()
+	bool ServiceManager::init()
+	{
+		std::shared_lock<std::shared_mutex> lock(mMutex);
+		mServices.clear();
+		mNamedServices.clear();
+		return true;
+	}
+
+	void ServiceManager::shutdown()
 	{
 		std::unique_lock<std::shared_mutex> lock(mMutex);
 
-		for (auto& [key, entry] : mNamedServices) {
-			if (entry.shutdownFunc) {
-				try {
+		for (auto& [key, entry] : mNamedServices)
+		{
+			if (entry.shutdownFunc)
+			{
+				try
+				{
 					entry.shutdownFunc();
 				}
-				catch (...) {
-					// fprintf(stderr, "Error shutting down named service: %s\n", key.c_str());
+				catch (...)
+				{
+					APP_LOG_ERROR("[Service Manager]: Error shutting down named service: {}", key);
 				}
 			}
 		}
 
-		for (auto& [typeIdx, entry] : mServices) {
-			if (entry.shutdownFunc) {
-				try {
+		for (auto& [typeIdx, entry] : mServices)
+		{
+			if (entry.shutdownFunc)
+			{
+				try
+				{
 					entry.shutdownFunc();
 				}
-				catch (...) {
-					// fprintf(stderr, "Error shutting down service: %s\n", typeIdx.name());
+				catch (...)
+				{
+					APP_LOG_ERROR("[Service Manager]: Error shutting down service: {}", typeIdx.name());
 				}
 			}
 		}

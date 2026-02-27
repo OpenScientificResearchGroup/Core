@@ -11,28 +11,22 @@ namespace core
 		return instance;
 	}
 
-	void I18nManager::init(const std::string& locale, const std::string& fallbackLocale)
+	bool I18nManager::init(const std::string& locale, const std::string& fallbackLocale)
 	{
-		std::unique_lock lock(mMutex);
-
+		std::unique_lock<std::shared_mutex> lock(mMutex);
 		mCurrentLocale = locale;
 		mFallbackLocale = fallbackLocale.empty() ? "en-US" : fallbackLocale;
+		mTranslations.clear();
+		return true;
 	}
 
-	//void I18nManager::setLoader(std::shared_ptr<ITranslationLoader> loader)
-	//{
-	//	std::unique_lock lock(mMutex);
-	//	mLoader = loader;
-	//}
-
-	//void I18nManager::setFallbackLocale(const std::string& locale)
-	//{
-	//	std::unique_lock lock(mMutex);
-	//	mFallbackLocale = locale;
-	//	// 可以在这里预加载 fallback 数据
-	//	if (mLoader)
-	//		mFallbackTranslations = mLoader->load(mFallbackLocale);
-	//}
+	void I18nManager::shutdown()
+	{
+		std::unique_lock<std::shared_mutex> lock(mMutex);
+		mCurrentLocale = "";
+		mFallbackLocale = "";
+		mTranslations.clear();
+	}
 
 	bool I18nManager::loadFromFile(const std::string& path, const std::string& locale)
 	{
@@ -41,19 +35,19 @@ namespace core
 			std::ifstream file(path);
 			if (!file.is_open())
 			{
-				std::cerr << "无法打开文件: " << path << std::endl;
+				APP_LOG_ERROR("[I18n Manager]: Could not open file '{}'", path);
 				return false;
 			}
 
 			nlohmann::json j = nlohmann::json::parse(file);
 			if (!j.is_object())
 			{
-				std::cerr << "JSON格式错误：应为对象类型" << std::endl;
+				APP_LOG_ERROR("[I18n Manager]: JSON format error in file '{}': expected an object at the root", path);
 				return false;
 			}
 
 			{
-				std::unique_lock lock(mMutex);
+				std::unique_lock<std::shared_mutex> lock(mMutex);
 
 				auto& translations = mTranslations[locale]; // 获取或创建当前语言的翻译表
 				for (auto it = j.begin(); it != j.end(); ++it)
@@ -68,37 +62,37 @@ namespace core
 					{
 						// 空值：可以跳过或设置为空字符串
 						translations[key] = "";
-						std::cout << "警告: 键 '" << key << "' 的值为 null，已设置为空字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has null value in file '{}', set to empty string", key, path);
 					}
 					else if (value.is_number())
 					{
 						// 数字类型：转换为字符串
 						translations[key] = std::to_string(value.get<double>());
-						std::cout << "警告: 键 '" << key << "' 的值为数字，已转换为字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has numeric value in file '{}', converted to string", key, path);
 					}
 					else if (value.is_boolean())
 					{
 						// 布尔类型：转换为字符串
 						translations[key] = value.get<bool>() ? "true" : "false";
-						std::cout << "警告: 键 '" << key << "' 的值为布尔值，已转换为字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has boolean value in file '{}', converted to string", key, path);
 					}
 					else
 					{
 						// 复杂类型：使用 dump()
 						translations[key] = value.dump();
-						std::cout << "警告: 键 '" << key << "' 的值为复杂类型，已转换为JSON字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has complex value in file '{}', converted to JSON string", key, path);
 					}
 				}
 			}
 		}
 		catch (const nlohmann::json::parse_error& e)
 		{
-			std::cerr << "JSON解析错误: " << e.what() << std::endl;
+			APP_LOG_ERROR("[I18n Manager]: JSON parsing error in file '{}': {}", path, e.what());
 			return false;
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "文件读取错误: " << e.what() << std::endl;
+			APP_LOG_ERROR("[I18n Manager]: Error reading file '{}': {}", path, e.what());
 			return false;
 		}
 		return true;
@@ -111,12 +105,12 @@ namespace core
 			nlohmann::json j = nlohmann::json::parse(data);
 			if (!j.is_object())
 			{
-				std::cerr << "JSON格式错误：应为对象类型" << std::endl;
+				APP_LOG_ERROR("[I18n Manager]: JSON format error in provided string for locale '{}': expected an object at the root", locale);
 				return false;
 			}
 
 			{
-				std::unique_lock lock(mMutex);
+				std::unique_lock<std::shared_mutex> lock(mMutex);
 
 				auto& translations = mTranslations[locale]; // 获取或创建当前语言的翻译表
 				for (auto it = j.begin(); it != j.end(); ++it)
@@ -131,37 +125,37 @@ namespace core
 					{
 						// 空值：可以跳过或设置为空字符串
 						translations[key] = "";
-						std::cout << "警告: 键 '" << key << "' 的值为 null，已设置为空字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has null value in provided string for locale '{}', set to empty string", key, locale);
 					}
 					else if (value.is_number())
 					{
 						// 数字类型：转换为字符串
 						translations[key] = std::to_string(value.get<double>());
-						std::cout << "警告: 键 '" << key << "' 的值为数字，已转换为字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has numeric value in provided string for locale '{}', converted to string", key, locale);
 					}
 					else if (value.is_boolean())
 					{
 						// 布尔类型：转换为字符串
 						translations[key] = value.get<bool>() ? "true" : "false";
-						std::cout << "警告: 键 '" << key << "' 的值为布尔值，已转换为字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has boolean value in provided string for locale '{}', converted to string", key, locale);
 					}
 					else
 					{
 						// 复杂类型：使用 dump()
 						translations[key] = value.dump();
-						std::cout << "警告: 键 '" << key << "' 的值为复杂类型，已转换为JSON字符串" << std::endl;
+						APP_LOG_WARN("[I18n Manager]: Key '{}' has complex value in provided string for locale '{}', converted to JSON string", key, locale);
 					}
 				}
 			}
 		}
 		catch (const nlohmann::json::parse_error& e)
 		{
-			std::cerr << "JSON解析错误: " << e.what() << std::endl;
+			APP_LOG_ERROR("[I18n Manager]: JSON parsing error in provided string for locale '{}': {}", locale, e.what());
 			return false;
 		}
 		catch (const std::exception& e)
 		{
-			std::cerr << "文件读取错误: " << e.what() << std::endl;
+			APP_LOG_ERROR("[I18n Manager]: Error processing provided string for locale '{}': {}", locale, e.what());
 			return false;
 		}
 		return true;
@@ -169,7 +163,7 @@ namespace core
 
 	void I18nManager::setLocale(const std::string& locale)
 	{
-		std::unique_lock lock(mMutex);
+		std::unique_lock<std::shared_mutex> lock(mMutex);
 		mCurrentLocale = locale;
 		//// 1. 加载新语言
 		//// 注意：实际项目中 load 应该在外部异步做，这里为了简单同步执行
@@ -186,44 +180,42 @@ namespace core
 
 	std::string I18nManager::getLocale() const
 	{
-		std::shared_lock lock(mMutex);
+		std::shared_lock<std::shared_mutex> lock(mMutex);
 		return mCurrentLocale;
 	}
 
 	std::string I18nManager::getFallbackLocale() const
 	{
-		std::shared_lock lock(mMutex);
+		std::shared_lock<std::shared_mutex> lock(mMutex);
 		return mFallbackLocale;
 	}
 
 	void I18nManager::clear()
 	{
-		std::unique_lock lock(mMutex);
+		std::unique_lock<std::shared_mutex> lock(mMutex);
 		mTranslations.clear();
-		std::cout << "[I18n] 已清除所有翻译资源" << std::endl;
 	}
 
 	void I18nManager::removeLocale(const std::string& locale)
 	{
-		std::unique_lock lock(mMutex);
+		std::unique_lock<std::shared_mutex> lock(mMutex);
 
 		if (mTranslations.erase(locale) > 0)
 		{
-			std::cout << "[I18n] 已移除语言: " << locale << std::endl;
+			APP_LOG_INFO("[I18n Manager]: Removed locale '{}'", locale);
 
 			// 如果移除的是当前语言，切换到回退语言
 			if (locale == mCurrentLocale && !mTranslations.empty())
 			{
 				mCurrentLocale = mFallbackLocale;
-				std::cout << "[I18n] 当前语言 '" << locale
-					<< "' 被移除，已切换到回退语言 '" << mFallbackLocale << "'" << std::endl;
+				APP_LOG_INFO("[I18n Manager]: Current locale '{}' removed, switched to fallback locale '{}'", locale, mFallbackLocale);
 			}
 		}
 	}
 
 	std::string_view I18nManager::getRaw(const std::string& key) const
 	{
-		std::shared_lock lock(mMutex); // 读锁，允许多个线程同时翻译
+		std::shared_lock<std::shared_mutex> lock(mMutex); // 读锁，允许多个线程同时翻译
 
 		// 1. 查找当前语言
 		auto localeIt = mTranslations.find(mCurrentLocale);
@@ -257,7 +249,7 @@ namespace core
 
 	bool I18nManager::hasKey(const std::string& key, const std::string& locale) const
 	{
-		std::shared_lock lock(mMutex);
+		std::shared_lock<std::shared_mutex> lock(mMutex);
 
 		std::string targetLocale = mCurrentLocale;
 		if (locale != "")

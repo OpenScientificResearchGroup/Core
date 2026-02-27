@@ -21,12 +21,14 @@
 
 namespace core
 {
-	PluginManager& PluginManager::get() {
+	PluginManager& PluginManager::get()
+	{
 		static PluginManager instance;
 		return instance;
 	}
 
-	PluginManager::~PluginManager() {
+	PluginManager::~PluginManager()
+	{
 		unloadAll();
 	}
 
@@ -34,7 +36,7 @@ namespace core
 	// 1. 初始化 (Init)
 	// =========================================================================
 
-	void PluginManager::init(const std::string& coreDir, const std::string& userDir)
+	bool PluginManager::init(const std::string& coreDir, const std::string& userDir)
 	{
 		mCoreDir = coreDir;
 		mUserDir = userDir;
@@ -98,6 +100,7 @@ namespace core
 
 		APP_LOG_INFO("[Plugin Manager]: Plugin Manager initialized successfully.");
 		APP_LOG_INFO("[Plugin Manager]: Total Plugins: {}, Missing Core: {}", mPlugins.size(), mMissingCorePlugins.size());
+		return true;
 	}
 
 	void PluginManager::shutdown()
@@ -170,9 +173,11 @@ namespace core
 	void PluginManager::saveUserManifest()
 	{
 		nlohmann::json pluginsObj;
-		for (const auto& [id, plugin] : mPlugins) {
+		for (const auto& [id, plugin] : mPlugins)
+		{
 			// 只保存第三方插件
-			if (plugin->metadata.type == PluginType::ThirdParty) {
+			if (plugin->metadata.type == PluginType::ThirdParty)
+			{
 				nlohmann::json item;
 
 				// 路径标准化为 Generic String (Forward Slash)
@@ -238,19 +243,22 @@ namespace core
 
 	bool PluginManager::checkIntegrity(std::shared_ptr<PluginInstance> plugin)
 	{
-		if (!std::filesystem::exists(plugin->metadata.rootPath)) {
+		if (!std::filesystem::exists(plugin->metadata.rootPath))
+		{
 			plugin->metadata.integrityStatus = "RootDirectoryMissing";
 			return false;
 		}
 
 		// 解析本地 plugin.json
 		auto freshInfo = parseLocalPluginJson(plugin->metadata.rootPath);
-		if (!freshInfo) {
+		if (!freshInfo)
+		{
 			plugin->metadata.integrityStatus = "InvalidPluginJson";
 			return false;
 		}
 
-		if (freshInfo->metadata.id != plugin->metadata.id) {
+		if (freshInfo->metadata.id != plugin->metadata.id)
+		{
 			plugin->metadata.integrityStatus = "IdMismatch";
 			return false;
 		}
@@ -265,25 +273,30 @@ namespace core
 
 		// 检查 Binary
 		auto mainDllPath = plugin->metadata.rootPath / plugin->metadata.binaryName;
-		if (!std::filesystem::exists(mainDllPath)) {
+		if (!std::filesystem::exists(mainDllPath))
+		{
 			plugin->metadata.integrityStatus = "MainBinaryMissing: " + plugin->metadata.binaryName;
 			return false;
 		}
 
 		// 2. 【新增】检查依赖 DLL (Libraries)
 		// 这些文件丢失虽然不影响 PluginManager 逻辑，但会导致 LoadLibrary 失败
-		for (const auto& lib : plugin->metadata.libraries) {
+		for (const auto& lib : plugin->metadata.libraries)
+		{
 			auto libPath = plugin->metadata.rootPath / lib;
-			if (!std::filesystem::exists(libPath)) {
+			if (!std::filesystem::exists(libPath))
+			{
 				plugin->metadata.integrityStatus = "LibraryMissing: " + lib;
 				return false;
 			}
 		}
 
 		// 检查 Resources
-		for (const auto& res : plugin->metadata.resources) {
+		for (const auto& res : plugin->metadata.resources)
+		{
 			auto resPath = plugin->metadata.rootPath / res;
-			if (!std::filesystem::exists(resPath)) {
+			if (!std::filesystem::exists(resPath))
+			{
 				plugin->metadata.integrityStatus = "ResourceMissing: " + res;
 				return false;
 			}
@@ -298,7 +311,8 @@ namespace core
 		auto path = dir / "plugin.json";
 		if (!std::filesystem::exists(path)) return nullptr;
 
-		try {
+		try
+		{
 			std::ifstream f(path);
 			nlohmann::json j = nlohmann::json::parse(f);
 
@@ -321,7 +335,8 @@ namespace core
 			if (p->metadata.id.empty()) return nullptr;
 			return p;
 		}
-		catch (...) {
+		catch (...)
+		{
 			return nullptr;
 		}
 	}
@@ -338,7 +353,8 @@ namespace core
 
 		// 快速状态检查
 		if (plugin->state == PluginState::Loaded) return true;
-		if (plugin->state == PluginState::Disabled) {
+		if (plugin->state == PluginState::Disabled)
+		{
 			APP_LOG_WARN("Attempted to load disabled plugin: {}", id);
 			return false;
 		}
@@ -367,16 +383,19 @@ namespace core
 		visited.insert(id);
 
 		// 递归加载依赖
-		for (const auto& depId : plugin->metadata.dependencies) {
+		for (const auto& depId : plugin->metadata.dependencies)
+		{
 			// APP_LOG_INFO("Resolving dependency: {} -> {}", id, depId);
-			if (!loadPluginRecursive(depId, visited)) {
+			if (!loadPluginRecursive(depId, visited))
+			{
 				APP_LOG_ERROR("Failed to load dependency {} for plugin {}", depId, id);
 				return false;
 			}
 		}
 
 		// 加载 DLL
-		if (loadDll(*plugin)) {
+		if (loadDll(*plugin))
+		{
 			mLoadOrder.push_back(id);
 			return true;
 		}
@@ -425,7 +444,8 @@ namespace core
 		auto createFunc = (core::PluginBase * (*)())GET_SYM("createPlugin");
 		auto destroyFunc = (void (*)(core::PluginBase*))GET_SYM("destroyPlugin");
 
-		if (!createFunc || !destroyFunc) {
+		if (!createFunc || !destroyFunc)
+		{
 			APP_LOG_ERROR("[Plugin Manager]: Failed to resolve symbols in: {}", path.string());
 			// 记得在这里释放 handle，否则这次加载失败的 DLL 会一直占用内存
 #ifdef _WIN32
@@ -555,7 +575,8 @@ namespace core
 			if (targetPlugin->metadata.type == PluginType::Builtin) return affectedList; // Core always enabled
 			if (targetPlugin->state == PluginState::Broken) return affectedList;
 
-			if (!targetPlugin->metadata.isEnabled) {
+			if (!targetPlugin->metadata.isEnabled)
+			{
 				targetPlugin->metadata.isEnabled = true;
 				targetPlugin->state = PluginState::Unloaded;
 				affectedList.push_back(id);
@@ -567,7 +588,8 @@ namespace core
 		// 禁用逻辑 (级联)
 		else
 		{
-			if (targetPlugin->metadata.type == PluginType::Builtin) {
+			if (targetPlugin->metadata.type == PluginType::Builtin)
+			{
 				APP_LOG_WARN("Cannot disable Built-in plugin: {}", id);
 				return affectedList;
 			}
@@ -575,7 +597,8 @@ namespace core
 			std::set<std::string> visited;
 			disablePluginRecursive(id, affectedList, visited);
 
-			if (!affectedList.empty()) {
+			if (!affectedList.empty())
+			{
 				APP_LOG_INFO("Cascading disable affected {} plugins.", affectedList.size());
 				saveUserManifest();
 			}
@@ -606,9 +629,8 @@ namespace core
 		auto& plugin = mPlugins[targetId];
 		if (plugin->metadata.isEnabled)
 		{
-			if (plugin->state == PluginState::Loaded) {
+			if (plugin->state == PluginState::Loaded)
 				unloadDll(*plugin);
-			}
 			plugin->metadata.isEnabled = false;
 			plugin->state = PluginState::Disabled;
 			affected.push_back(targetId);
@@ -622,13 +644,15 @@ namespace core
 	bool PluginManager::installFromPath(const std::string& externalPath)
 	{
 		auto info = parseLocalPluginJson(externalPath);
-		if (!info) {
+		if (!info)
+		{
 			APP_LOG_ERROR("Invalid plugin directory: {}", externalPath);
 			return false;
 		}
 
 		std::string id = info->metadata.id;
-		if (mPlugins.count(id)) {
+		if (mPlugins.count(id))
+		{
 			APP_LOG_ERROR("Plugin ID collision: {}", id);
 			return false;
 		}
@@ -640,7 +664,8 @@ namespace core
 		mPlugins[id] = info;
 		saveUserManifest();
 
-		if (checkIntegrity(info)) {
+		if (checkIntegrity(info))
+		{
 			info->state = PluginState::Unloaded;
 			loadPlugin(id); // 尝试加载
 		}
@@ -657,7 +682,8 @@ namespace core
 
 		// 2. 读取 ID
 		auto info = parseLocalPluginJson(tempDir);
-		if (!info || info->metadata.id.empty()) {
+		if (!info || info->metadata.id.empty())
+		{
 			std::filesystem::remove_all(tempDir);
 			return false;
 		}
@@ -665,8 +691,10 @@ namespace core
 		std::string id = info->metadata.id;
 
 		// 允许覆盖旧的 ThirdParty 插件
-		if (mPlugins.count(id)) {
-			if (mPlugins[id]->metadata.type == PluginType::Builtin) {
+		if (mPlugins.count(id))
+		{
+			if (mPlugins[id]->metadata.type == PluginType::Builtin)
+			{
 				std::filesystem::remove_all(tempDir);
 				return false;
 			}
@@ -675,10 +703,12 @@ namespace core
 
 		// 3. 移动到 plugins/ID
 		std::filesystem::path dest = mUserDir / id;
-		try {
+		try
+		{
 			std::filesystem::create_directories(dest);
 			// 递归复制
-			for (const auto& entry : std::filesystem::recursive_directory_iterator(tempDir)) {
+			for (const auto& entry : std::filesystem::recursive_directory_iterator(tempDir))
+			{
 				auto rel = std::filesystem::relative(entry.path(), tempDir);
 				auto target = dest / rel;
 				if (entry.is_directory()) std::filesystem::create_directories(target);
@@ -686,7 +716,8 @@ namespace core
 			}
 			std::filesystem::remove_all(tempDir);
 		}
-		catch (...) {
+		catch (...)
+		{
 			return false;
 		}
 
@@ -700,7 +731,8 @@ namespace core
 		checkIntegrity(newPlugin);
 		saveUserManifest();
 
-		if (newPlugin->metadata.integrityStatus == "OK") {
+		if (newPlugin->metadata.integrityStatus == "OK")
+		{
 			newPlugin->state = PluginState::Unloaded;
 			loadPlugin(id);
 		}
@@ -718,11 +750,17 @@ namespace core
 
 		if (plugin->state == PluginState::Loaded) unloadDll(*plugin);
 
-		if (plugin->metadata.installMethod == InstallMethod::Copy) {
-			try {
+		if (plugin->metadata.installMethod == InstallMethod::Copy)
+		{
+			try
+			{
 				std::filesystem::remove_all(plugin->metadata.rootPath);
 			}
-			catch (...) { return false; }
+			catch (...)
+			{
+				APP_LOG_ERROR("Failed to remove plugin files: {}", plugin->metadata.rootPath.string());
+				return false;
+			}
 		}
 
 		mPlugins.erase(it);
@@ -738,7 +776,8 @@ namespace core
 	{
 		void* reader = mz_zip_reader_create();
 
-		if (mz_zip_reader_open_file(reader, zipPath.c_str()) != MZ_OK) {
+		if (mz_zip_reader_open_file(reader, zipPath.c_str()) != MZ_OK)
+		{
 			mz_zip_reader_delete(&reader);
 			return false;
 		}
@@ -749,20 +788,22 @@ namespace core
 		int err = mz_zip_reader_goto_first_entry(reader);
 		bool success = true;
 
-		while (err == MZ_OK && success) {
+		while (err == MZ_OK && success)
+		{
 			mz_zip_file* file_info = NULL;
 			mz_zip_reader_entry_get_info(reader, &file_info);
 
 			// 路径拼接
 			std::filesystem::path outPath = std::filesystem::path(destDir) / file_info->filename;
 
-			if (mz_zip_reader_entry_is_dir(reader) == MZ_OK) {
+			if (mz_zip_reader_entry_is_dir(reader) == MZ_OK)
 				std::filesystem::create_directories(outPath);
-			}
-			else {
+			else
+			{
 				if (outPath.has_parent_path()) std::filesystem::create_directories(outPath.parent_path());
 
-				if (mz_zip_reader_entry_save_file(reader, outPath.string().c_str()) != MZ_OK) {
+				if (mz_zip_reader_entry_save_file(reader, outPath.string().c_str()) != MZ_OK)
+				{
 					success = false;
 					APP_LOG_ERROR("Failed to extract file: {}", file_info->filename);
 				}
@@ -776,18 +817,21 @@ namespace core
 	}
 
 	// 查询接口
-	std::shared_ptr<PluginInstance> PluginManager::getPlugin(const std::string& id) {
+	std::shared_ptr<PluginInstance> PluginManager::getPlugin(const std::string& id)
+	{
 		if (mPlugins.count(id)) return mPlugins[id];
 		return nullptr;
 	}
 
-	std::vector<std::shared_ptr<PluginInstance>> PluginManager::getAllPlugins() const {
+	std::vector<std::shared_ptr<PluginInstance>> PluginManager::getAllPlugins() const
+	{
 		std::vector<std::shared_ptr<PluginInstance>> list;
 		for (auto& [k, v] : mPlugins) list.push_back(v);
 		return list;
 	}
 
-	std::vector<std::string> PluginManager::getMissingCorePlugins() const {
+	std::vector<std::string> PluginManager::getMissingCorePlugins() const
+	{
 		return mMissingCorePlugins;
 	}
 }

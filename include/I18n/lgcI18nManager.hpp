@@ -1,39 +1,32 @@
 #pragma once
 #include "defCoreApi.hpp"
 
+#include <functional>
+#include <iostream>
+#include <memory>
+#include <shared_mutex>
 #include <string>
 #include <unordered_map>
 #include <vector>
-#include <memory>
-#include <shared_mutex>
-#include <functional>
-#include <iostream>
 
-#include <fmt/format.h> // 需要安装 fmtlib，或者使用 C++20 <format>
+#include <fmt/format.h>
 #include <nlohmann/json.hpp>
+
+#include "Log/lgcLogManager.hpp"
 
 namespace core
 {
-	//// 定义翻译数据的加载接口（策略模式）
-	//class ITranslationLoader
-	//{
-	//public:
-	//	virtual ~ITranslationLoader() = default;
-	//	// 返回扁平化的 Key-Value map, 例如: {"auth.login.btn": "登录"}
-	//	virtual std::unordered_map<std::string, std::string> load(const std::string& locale) = 0;
-	//};
-
-	class I18nManager
+	class CORE_API I18nManager
 	{
 	public:
 		static I18nManager& get();
+
 		I18nManager(const I18nManager&) = delete;
 		I18nManager& operator=(const I18nManager&) = delete;
 
 		// 初始化配置
-		void init(const std::string& locale, const std::string& fallbackLocale = "");
-		//void setLoader(std::shared_ptr<ITranslationLoader> loader);
-		//void setFallbackLocale(const std::string& locale);
+		bool init(const std::string& locale, const std::string& fallbackLocale = "");
+		void shutdown();
 
 		// 异步或同步加载语言
 		bool loadFromFile(const std::string& path, const std::string& locale);
@@ -61,8 +54,7 @@ namespace core
 			}
 			catch (const fmt::format_error& e)
 			{
-				// 容错：格式化失败返回原始模板，并在 stderr 报错
-				std::cerr << "[I18n Error] Format failed for key '" << key << "': " << e.what() << std::endl;
+				APP_LOG_ERROR("[I18n Manager]: Format error for key '{}': {}", key, e.what());
 				return std::string(formatStr);
 			}
 		}
@@ -96,21 +88,14 @@ namespace core
 		~I18nManager() = default;
 
 		// 内部查找逻辑
-		// bool parseJsonObject(const nlohmann::json& data, std::unordered_map<std::string, std::string>& translations);
 		std::string_view getRaw(const std::string& key) const;
 		bool hasKey(const std::string& key, const std::string& locale = "") const;
 
-		// std::shared_ptr<ITranslationLoader> mLoader;
+	private:
+		mutable std::shared_mutex mMutex; // 读写锁：保证线程安全
 		std::string mCurrentLocale;
-		std::string mFallbackLocale = "en-US";
-
-		// 缓存池：当前语言 + 回退语言 + 其他
-		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> mTranslations;
-		//std::unordered_map<std::string, std::string> mTranslations;
-		//std::unordered_map<std::string, std::string> mFallbackTranslations;
-
-		// 读写锁：保证线程安全
-		mutable std::shared_mutex mMutex;
+		std::string mFallbackLocale;
+		std::unordered_map<std::string, std::unordered_map<std::string, std::string>> mTranslations; // 缓存池：当前语言 + 回退语言 + 其他
 
 		//std::vector<std::function<void(const std::string&)>> mListeners;
 	};
