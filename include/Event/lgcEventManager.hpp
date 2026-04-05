@@ -5,13 +5,15 @@
 #include <atomic>
 #include <functional>
 #include <iostream>
-#include <mutex>
 #include <shared_mutex>
 #include <string>
 #include <typeindex>
+#include <type_traits>
 #include <unordered_map>
+#include <vector>
 
 #include "Log/lgcLogManager.hpp"
+#include "Task/lgcTaskManager.hpp"
 
 namespace core
 {
@@ -56,31 +58,66 @@ namespace core
 		template <typename EventType>
 		void publish(const std::string& topic, const EventType& event, const size_t& excludedId = 0)
 		{
-			std::shared_lock<std::shared_mutex> lock(mMutex);
+			static_assert(std::is_copy_constructible_v<EventType>, "Async publish requires copy-constructible event type");
 
-			auto topicIt = mSubscribers.find(topic);
-			if (topicIt == mSubscribers.end())
-				return;
-
-			std::type_index typeIdx = std::type_index(typeid(EventType));
-			const auto& typeMap = topicIt->second;
-
-			auto typeIt = typeMap.find(typeIdx);
-			if (typeIt == typeMap.end())
-				return;
-
-			try
+			std::vector<std::function<void(const EventType&)>> callbacks;
 			{
-				const auto& handlers = std::any_cast<const std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeIt->second);
-				for (const auto& [id, callback] : handlers)
+				std::shared_lock<std::shared_mutex> lock(mMutex);
+
+				auto topicIt = mSubscribers.find(topic);
+				if (topicIt == mSubscribers.end()) return;
+
+				std::type_index typeIdx = std::type_index(typeid(EventType));
+				const auto& typeMap = topicIt->second;
+
+				auto typeIt = typeMap.find(typeIdx);
+				if (typeIt == typeMap.end()) return;
+
+				try
 				{
-					if (id == excludedId) continue;
-					if (callback) callback(event);
+					const auto& handlers = std::any_cast<const std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeIt->second);
+					callbacks.reserve(handlers.size());
+					for (const auto& [id, callback] : handlers)
+					{
+						if (id == excludedId) continue;
+						if (callback) callbacks.push_back(callback);
+					}
+				}
+				catch (const std::bad_any_cast&)
+				{
+					APP_LOG_ERROR("[Event Manager]: Type mismatch when publishing event of type {} on topic '{}'", typeid(EventType).name(), topic);
+					return;
 				}
 			}
-			catch (const std::bad_any_cast&)
+
+			if (callbacks.empty()) return;
+
+			EventType copiedEvent = event;
+			try
 			{
-				APP_LOG_ERROR("[Event Manager]: Type mismatch when publishing event of type {} on topic '{}'", typeid(EventType).name(), topic);
+				TaskManager::get().add(Priority::NORMAL, [callbacks = std::move(callbacks), copiedEvent = std::move(copiedEvent)]() mutable
+				{
+					for (auto& cb : callbacks)
+					{
+						if (!cb) continue;
+						try
+						{
+							cb(copiedEvent);
+						}
+						catch (const std::exception& ex)
+						{
+							APP_LOG_ERROR("[Event Manager]: Exception in async callback: {}", ex.what());
+						}
+						catch (...)
+						{
+							APP_LOG_ERROR("[Event Manager]: Unknown exception in async callback");
+						}
+					}
+				});
+			}
+			catch (const std::exception& ex)
+			{
+				APP_LOG_ERROR("[Event Manager]: Failed to enqueue publish task: {}", ex.what());
 			}
 		}
 

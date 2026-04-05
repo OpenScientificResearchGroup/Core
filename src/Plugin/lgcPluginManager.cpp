@@ -14,10 +14,10 @@
 #endif
 
 // Minizip-ng Headers
-#include "mz.h"
-#include "mz_zip.h"
-#include "mz_strm.h"
-#include "mz_zip_rw.h"
+#include <minizip-ng/mz.h>
+#include <minizip-ng/mz_zip.h>
+#include <minizip-ng/mz_strm.h>
+#include <minizip-ng/mz_zip_rw.h>
 
 namespace core
 {
@@ -493,7 +493,7 @@ namespace core
 
 		plugin.pluginObject = std::shared_ptr<core::PluginBase>(std::move(guard));
 
-		// 初始化
+		// 混合生命周期：RAII 管理对象生存期，init() 负责业务初始化。
 		if (!plugin.pluginObject->init())
 		{
 			APP_LOG_ERROR("[Plugin Manager]: InitPlugin returned false: {}", plugin.metadata.id);
@@ -519,12 +519,11 @@ namespace core
 		// 如果还没加载，直接返回
 		if (plugin.state == PluginState::Unloaded) return;
 
-		// 1. 先执行业务层面的关闭
+		// 混合生命周期：RAII 管理对象生存期，shutdown() 负责业务反注册/反初始化。
 		if (plugin.pluginObject)
 		{
 			try
 			{
-				// 调用虚函数 shutdown
 				plugin.pluginObject->shutdown();
 			}
 			catch (const std::exception& e)
@@ -537,12 +536,12 @@ namespace core
 			}
 		}
 
-		// 2. 【关键修正】销毁 C++ 对象
+		// 1. 销毁 C++ 对象
 		// 必须在 FreeLibrary 之前完成！
 		// 置空 shared_ptr 会触发 deleter (destroyPlugin)，此时 DLL 还在内存中，是安全的。
 		plugin.pluginObject = nullptr;
 
-		// 3. 最后卸载 DLL
+		// 2. 最后卸载 DLL
 		if (plugin.dllHandle)
 		{
 			APP_LOG_INFO("[Plugin Manager]: Freeing Library");

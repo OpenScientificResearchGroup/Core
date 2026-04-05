@@ -117,7 +117,8 @@ namespace core
 		{
 			std::unique_lock<std::shared_mutex> lock(mMutex);
 			std::string key = std::string(typeid(Interface).name()) + "::" + name;
-			mNamedServices.erase(key);
+            if (mNamedServices.find(key) != mNamedServices.end())
+		    	mNamedServices.erase(key);
 		}
 
 	private:

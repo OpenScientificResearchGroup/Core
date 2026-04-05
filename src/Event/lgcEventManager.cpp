@@ -16,7 +16,7 @@ namespace core
 
 	EventManager::~EventManager()
 	{
-
+		shutdown();
 	};
 
 	bool EventManager::init()
