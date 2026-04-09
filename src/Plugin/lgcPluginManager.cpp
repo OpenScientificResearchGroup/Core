@@ -545,18 +545,23 @@ namespace core
 		// 1. 销毁 C++ 对象
 		// 必须在 FreeLibrary 之前完成！
 		// 置空 shared_ptr 会触发 deleter (destroyPlugin)，此时 DLL 还在内存中，是安全的。
+		APP_LOG_INFO("[Plugin Manager]: Releasing plugin object: {}", plugin.metadata.id);
 		plugin.pluginObject = nullptr;
+		APP_LOG_INFO("[Plugin Manager]: Plugin object released: {}", plugin.metadata.id);
 
 		// 2. 最后卸载 DLL
 		if (plugin.dllHandle)
 		{
-			APP_LOG_INFO("[Plugin Manager]: Freeing Library");
+			APP_LOG_INFO("[Plugin Manager]: Freeing Library: {}", plugin.metadata.id);
 #ifdef _WIN32
-			FreeLibrary((HMODULE)plugin.dllHandle);
+			BOOL ok = FreeLibrary((HMODULE)plugin.dllHandle);
+			if (!ok)
+				APP_LOG_ERROR("[Plugin Manager]: FreeLibrary failed for {}. GetLastError={}", plugin.metadata.id, GetLastError());
 #else
 			dlclose(plugin.dllHandle);
 #endif
 			plugin.dllHandle = nullptr;
+			APP_LOG_INFO("[Plugin Manager]: Library freed: {}", plugin.metadata.id);
 		}
 
 		plugin.state = PluginState::Unloaded;

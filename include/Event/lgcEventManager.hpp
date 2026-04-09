@@ -141,22 +141,55 @@ namespace core
 			auto lookupIt = mIdLookup.find(id);
 			if (lookupIt == mIdLookup.end()) return;
 
-			std::string topic = lookupIt->second.topic;
+			const std::string topic = lookupIt->second.topic;
+			const std::type_index expectedType = lookupIt->second.type;
+			const std::type_index requestType = std::type_index(typeid(EventType));
 
-			auto topicIt = mSubscribers.find(topic);
-			if (topicIt != mSubscribers.end())
+			// 订阅 id 与事件类型是一一对应的；类型不一致时拒绝删除，
+			// 避免把 mIdLookup 先删掉后留下孤儿 handler，导致后续无法清理。
+			if (expectedType != requestType)
 			{
-				auto& typeMap = topicIt->second;
-				std::type_index typeIdx = std::type_index(typeid(EventType));
-				auto typeIt = typeMap.find(typeIdx);
-				if (typeIt != typeMap.end())
-				{
-					auto& handlers = std::any_cast<std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeIt->second);
-					handlers.erase(id);
-				}
+				APP_LOG_ERROR("[Event Manager]: Type mismatch when unsubscribing id {}. expected='{}', request='{}'", id, expectedType.name(), requestType.name());
+				return;
 			}
 
-			mIdLookup.erase(id);
+			auto topicIt = mSubscribers.find(topic);
+			if (topicIt == mSubscribers.end())
+			{
+				// 主题桶已经不存在，直接清理索引即可，防止 idLookup 残留。
+				mIdLookup.erase(lookupIt);
+				return;
+			}
+
+			auto& typeMap = topicIt->second;
+			auto typeIt = typeMap.find(requestType);
+			if (typeIt == typeMap.end())
+			{
+				// 类型桶已不存在，清理索引并返回。
+				mIdLookup.erase(lookupIt);
+				if (typeMap.empty())
+					mSubscribers.erase(topicIt);
+				return;
+			}
+
+			try
+			{
+				auto& handlers = std::any_cast<std::unordered_map<size_t, std::function<void(const EventType&)>>&>(typeIt->second);
+				handlers.erase(id);
+
+				// 分层清理，确保不会留下空桶，避免单例析构时出现异常状态。
+				if (handlers.empty())
+					typeMap.erase(typeIt);
+				if (typeMap.empty())
+					mSubscribers.erase(topicIt);
+			}
+			catch (const std::bad_any_cast&)
+			{
+				APP_LOG_ERROR("[Event Manager]: Type mismatch when unsubscribing event of type {} on topic '{}'", typeid(EventType).name(), topic);
+				return;
+			}
+
+			mIdLookup.erase(lookupIt);
 		}
 
 	private:

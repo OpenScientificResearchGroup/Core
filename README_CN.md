@@ -1,7 +1,7 @@
 # Core
 
 ![Build Status](https://img.shields.io/badge/build-passing-brightgreen)
-![License](https://img.shields.io/badge/license-MIT-blue)
+![License](https://img.shields.io/badge/license-MPL2.0-blue)
 ![Standard](https://img.shields.io/badge/c%2B%2B-17-blue)
 <!-- ![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Linux%20%7C%20macOS-lightgrey) -->
 

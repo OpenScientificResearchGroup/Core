@@ -45,7 +45,6 @@ namespace core
 		ResourceManager::get().init();
 		UiManager::get().init(appName);
 		PluginManager::get().init(corePluginsDir, userPluginsDir);
-
 	}
 
 	void shutdownCore()
