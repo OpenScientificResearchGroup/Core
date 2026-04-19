@@ -26,6 +26,8 @@ namespace core
 		// --- 1. 核心逻辑 ---
 		// 返回 bool：因为执行可能会失败（例如磁盘满了、内存不够、文件被占用）
 		// 如果返回 false，命令历史栈不应记录此命令
+		// NodeBase::execute()：负责“如何计算”（数据驱动，逻辑核心）
+		// Command::execute()：负责“如何改变状态”（动作分发，撤销栈核心）
 		virtual bool execute() = 0;
 
 		virtual void undo() = 0;
@@ -41,11 +43,6 @@ namespace core
 
 		// --- 3. 性能优化 (命令合并) ---
 		// 用于将连续的微小操作合并为一个。
-		// 例如：用户拖动滑块调整亮度，产生了 50 个命令，
-		// 我们希望这 50 个命令合并成 1 个，否则用户要按 50 次 Ctrl+Z。
-		// 【修改说明】：这里不能使用 std::unique_ptr<CommandBase> (按值传递)，
-		// 也不建议使用 const std::unique_ptr<CommandBase>& (引用传递)。
-		// 使用 const CommandBase* (裸指针) 是最佳实践。
 		virtual bool mergeWith(const CommandBase* other) { return false; }
 
 		// --- 4. 识别与分类 ---

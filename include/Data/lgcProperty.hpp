@@ -5,65 +5,134 @@
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
 #pragma once
-#include "defCoreApi.hpp"
 #include "virPropertyBase.hpp"
+
+#include <string>
+#include <any>
 
 namespace core
 {
     template <typename T> 
-    class CORE_API Property : public PropertyBase
+    class Property : public PropertyBase
     {
 	public:
-		Property() = default;
+		// 构造函数：必须显式初始化基类
+		Property(const std::string& key, NodeBase* node, const T& val)
+			: PropertyBase(key, node), mVal(val)
+		{
 
-		explicit Property(const T& val)
-			: mVal(val)
+		}
+
+		Property(const std::string& key, NodeBase* node, T&& val)
+			: PropertyBase(key, node), mVal(std::move(val))
 		{
 
 		}
 
 		virtual ~Property() = default;
 
+		// 方便快捷使用的运算符
+		Property<T>& operator=(const T& val)
+		{
+			set(val);
+			return *this;
+		}
+
+		Property<T>& operator=(T&& val)
+		{
+			set(std::move(val));
+			return *this;
+		}
+
 		virtual bool read(const nlohmann::json& j) override
 		{
-			if (!j.is_null())
-				setValue(j.get<T>());
+			if (j.is_object())
+			{
+				if (j.contains("link"))
+					readLink(j["link"]);
+
+				if (j.contains("value"))
+					mVal = j["value"].get<T>();
+			}
+			else if (!j.is_null())
+			{
+				resetLink();
+				mVal = j.get<T>();
+			}
 			return true;
 		}
 
 		virtual nlohmann::json write() const override
 		{
-			return nlohmann::json(mVal);
+			if (!isLink())
+				return nlohmann::json(mVal);
+
+			nlohmann::json j;
+			j["link"] = writeLink();
+			j["value"] = nlohmann::json(mVal);
+			return j;
 		}
 
-		virtual void setValue(const T& val)
+		void set(const T& val)
 		{
 			// if (val != mVal)
-				mVal = val;
+			// 工业软件常见逻辑：手动修改已链接的属性，会自动断开链接
+			mVal = val;
+			if (mLink.isActive)
+				resetLink();
+			else
+				update();
 		}
 
-		virtual const T& getValue() const
+		void set(T&& val)
+		{
+			// if (val != mVal)
+			// 工业软件常见逻辑：手动修改已链接的属性，会自动断开链接
+			mVal = std::move(val);
+			if (mLink.isActive)
+				resetLink();
+			else
+				update();
+		}
+
+		const T& get() const
 		{
 			return mVal;
 		}
 
-		virtual const std::any getValueAny() const override
+		std::any getValueAny() const override
 		{
 			return mVal;
 		}
 
-		virtual Property<T>& operator=(const T& val)
+		void setValueAny(const std::any& value) override
 		{
-			setValue(val);
-			return *this;
+			try
+			{
+				set(std::any_cast<T>(value));
+			}
+			catch (...)
+			{
+				/* 错误处理或日志 */
+			}
 		}
 
-		virtual operator T() const
+		bool sync(const std::any& sourceValue) override
 		{
-			return getValue();
+			if (!mLink.isActive) return false;
+			try
+			{
+				// 同步阶段只拷贝值，不触发 update，避免形成“同步 -> 脏标记 -> 再同步”的回路。
+				this->mVal = std::any_cast<T>(sourceValue);
+			}
+			catch (...)
+			{
+				// 类型不匹配时保持当前值，交由上层文档逻辑处理。
+			}
+			return true;
 		}
 
-	protected:
+	private:
 		T mVal;
 
 	};

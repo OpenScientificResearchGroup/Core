@@ -6,9 +6,7 @@
  */
 #include "Data/lgcDataManager.hpp"
 
-#include <sstream>
-
-#include "Data/virContainerBase.hpp"
+#include "Data/virNodeBase.hpp"
 
 namespace core
 {
@@ -36,7 +34,7 @@ namespace core
 
 	bool DataManager::closeDocument(const std::string& uuid)
 	{
-		std::shared_ptr<ContainerBase> docToClose = nullptr;
+		std::shared_ptr<NodeBase> docToClose = nullptr;
 		bool isActive = false;
 
 		{
@@ -61,9 +59,6 @@ namespace core
 			setActiveDocument(nextId);
 		}
 
-		//if (mOnDocListChanged)
-		//	mOnDocListChanged();
-
 		return true;
 	}
 
@@ -75,17 +70,12 @@ namespace core
 			mActiveDocUuid.clear();
 			mUntitledCount = 0;
 		}
-
-		//if (mOnActiveDocChanged)
-		//	mOnActiveDocChanged(nullptr, nullptr);
-		//if (mOnDocListChanged)
-		//	mOnDocListChanged();
 	}
 
 	void DataManager::setActiveDocument(const std::string& uuid)
 	{
-		std::shared_ptr<ContainerBase> oldDoc = nullptr;
-		std::shared_ptr<ContainerBase> newDoc = nullptr;
+		std::shared_ptr<NodeBase> oldDoc = nullptr;
+		std::shared_ptr<NodeBase> newDoc = nullptr;
 
 		{
 			std::shared_lock<std::shared_mutex> lock(mMutex);
@@ -108,12 +98,9 @@ namespace core
 			std::unique_lock<std::shared_mutex> lock(mMutex);
 			mActiveDocUuid = uuid;
 		}
-
-		//if (mOnActiveDocChanged)
-		//	mOnActiveDocChanged(oldDoc, newDoc);
 	}
 
-	std::shared_ptr<ContainerBase> DataManager::getActiveDocument() const
+	std::shared_ptr<NodeBase> DataManager::getActiveDocument() const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		if (mActiveDocUuid.empty()) return nullptr;
@@ -124,7 +111,7 @@ namespace core
 		return nullptr;
 	}
 
-	std::shared_ptr<ContainerBase> DataManager::getDocument(const std::string& uuid) const
+	std::shared_ptr<NodeBase> DataManager::getDocument(const std::string& uuid) const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		auto it = mDocs.find(uuid);
@@ -133,24 +120,13 @@ namespace core
 		return nullptr;
 	}
 
-	std::vector<std::shared_ptr<ContainerBase>> DataManager::getAllDocuments() const
+	std::vector<std::shared_ptr<NodeBase>> DataManager::getAllDocuments() const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
-		std::vector<std::shared_ptr<ContainerBase>> list;
+		std::vector<std::shared_ptr<NodeBase>> list;
 		list.reserve(mDocs.size());
 		for (const auto& kv : mDocs)
 			list.push_back(kv.second);
 		return list;
 	}
-
-	//void DataManager::setOnActiveDocChangedCallback(std::function<void(std::shared_ptr<ContainerBase> oldDoc, std::shared_ptr<ContainerBase> newDoc)> callback)
-	//{
-	//	mOnActiveDocChanged = callback;
-	//}
-
-	//void DataManager::setOnDocListChangedCallback(std::function<void()> callback)
-	//{
-	//	mOnDocListChanged = callback;
-	//}
-
 } // namespace core
