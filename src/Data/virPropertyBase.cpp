@@ -4,28 +4,51 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Data/lgcProperty.hpp"
+#include "Data/virPropertyBase.hpp"
 
+#include "Data/virPropertySetBase.hpp"
 #include "Data/virNodeBase.hpp"
 
 namespace core
 {
-	PropertyBase::PropertyBase(const std::string& key, NodeBase* node)
-		: mKey(key), mNode(node), mIsReadOnly(false), mIsVisible(true)
+	PropertyBase::PropertyBase(PropertyContainerBase* propertySet, const std::string& key)
+		//: mKey(key), mPropertySet(propertySet), mIsReadOnly(false), mIsVisible(true)
+		: ObjectBase(propertySet), mKey(key)
 	{
 		mLink.uuid.clear();
-		mLink.key.clear();
+		mLink.path.clear();
 		mLink.isActive = false;
+	}
+
+	ObjectType PropertyBase::getObjectType() const
+	{
+		return ObjectType::PROPERTY;
+	}
+	
+	NodeBase* PropertyBase::getNode() const
+	{
+		ObjectBase* current = mParent;
+
+		while (current != nullptr)
+		{
+			if (current->getObjectType() == ObjectType::NODE || current->getObjectType() == ObjectType::NODE_SET)
+				return static_cast<NodeBase*>(current);
+
+			// 继续向上追溯
+			current = current->getParent();
+		}
+
+		return nullptr;
+	}
+
+	PropertyContainerBase* PropertyBase::getContainer() const
+	{
+		return static_cast<PropertyContainerBase*>(mParent);
 	}
 
 	bool PropertyBase::isLink() const
 	{
 		return mLink.isActive;
-	}
-
-	NodeBase* PropertyBase::getNode() const
-	{
-		return mNode;
 	}
 
 	void PropertyBase::setLink(const std::string& uuid, const std::string& key = "")
@@ -34,7 +57,7 @@ namespace core
 			unlink();
 
 		mLink.uuid = uuid;
-		mLink.key = key;
+		mLink.path = key;
 		mLink.isActive = true;
 
 		link();
@@ -46,7 +69,7 @@ namespace core
 			unlink();
 
 		mLink.uuid.clear();
-		mLink.key.clear();
+		mLink.path.clear();
 		mLink.isActive = false;
 	}
 
@@ -58,7 +81,7 @@ namespace core
 	bool PropertyBase::readLink(const nlohmann::json& j)
 	{
 		mLink.uuid = j["node"].get<std::string>();
-		mLink.key = j.value("property", std::string(""));
+		mLink.path = j.value("property", std::string(""));
 		mLink.isActive = true;
 		return true;
 	}
@@ -67,58 +90,53 @@ namespace core
 	{
 		nlohmann::json j;
 		j["node"] = mLink.uuid;
-		if (!mLink.key.empty())
-			j["property"] = mLink.key;
+		if (!mLink.path.empty())
+			j["property"] = mLink.path;
 		return j;
 	}
 
-	const bool PropertyBase::isReadOnly() const
-	{
-		return mIsReadOnly;
-	}
+	//const bool PropertyBase::isReadOnly() const
+	//{
+	//	return mIsReadOnly;
+	//}
 
-	void PropertyBase::setReadOnly(bool isReadOnly)
-	{
-		mIsReadOnly = isReadOnly;
-	}
+	//void PropertyBase::setReadOnly(bool isReadOnly)
+	//{
+	//	mIsReadOnly = isReadOnly;
+	//}
 
-	const bool PropertyBase::isVisible() const
-	{
-		return mIsVisible;
-	}
+	//const bool PropertyBase::isVisible() const
+	//{
+	//	return mIsVisible;
+	//}
 
-	void PropertyBase::setVisible(bool isVisible)
-	{
-		mIsVisible = isVisible;
-	}
+	//void PropertyBase::setVisible(bool isVisible)
+	//{
+	//	mIsVisible = isVisible;
+	//}
 
 	void PropertyBase::attach()
 	{
-		if (mNode)
-			mNode->onAttach(this);
+		static_cast<PropertyContainerBase*>(mParent)->onAttach(this);
 	}
 
 	void PropertyBase::detach()
 	{
-		if (mNode)
-			mNode->onDetach(this);
+		static_cast<PropertyContainerBase*>(mParent)->onDetach(this);
 	}
 
 	void PropertyBase::update()
 	{
-		if (mNode)
-			mNode->onUpdate(this);
+		static_cast<PropertyContainerBase*>(mParent)->onUpdate(this);
 	}
 
 	void PropertyBase::link()
 	{
-		if (mNode)
-			mNode->onLink(this);
+		static_cast<PropertyContainerBase*>(mParent)->onLink(this);
 	}
 
 	void PropertyBase::unlink()
 	{
-		if (mNode)
-			mNode->onUnlink(this);
+		static_cast<PropertyContainerBase*>(mParent)->onUnlink(this);
 	}
 }

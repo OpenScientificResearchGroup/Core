@@ -4,9 +4,16 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-// #include "Data/lgcProperty.hpp"
-//
-// namespace core
-//{
-//
-// }
+#pragma once
+#include "virPropertySetBase.hpp"
+
+namespace core
+{
+	class AttributeGroup : public PropertySetBase
+	{
+	public:
+		AttributeGroup() = default;
+		virtual ~AttributeGroup() = default;
+
+	};
+}

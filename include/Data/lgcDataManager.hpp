@@ -16,7 +16,7 @@
 
 namespace core
 {
-	class NodeBase;
+	class Document;
 
 	class CORE_API DataManager
 	{
@@ -33,37 +33,40 @@ namespace core
 		bool init();
 		void shutdown();
 
-		template <typename T>
-		std::shared_ptr<T> createDocument(const std::string& name = "Untitled")
-		{
-			static_assert(std::is_base_of<NodeBase, T>::value, "T must inherit from Document");
+		//template <typename T>
+		//std::shared_ptr<T> createDocument(const std::string& name = "Untitled")
+		//{
+		//	static_assert(std::is_base_of<Document, T>::value, "T must inherit from Document");
 
-			auto doc = std::make_shared<T>();
-			doc->setName(name + "-" + std::to_string(mUntitledCount++));
-			doc->setUuid();
-			doc->setTimeStamp();
-			// registerDocument(doc);
-			doc->registerContainerIndex(doc->getUuid(), doc.get());
-			{
-				std::unique_lock lock(mMutex);
-				mDocs[doc->getUuid()] = doc;
-			}
+		//	auto doc = std::make_unique<T>();
+		//	doc->setName(name + "-" + std::to_string(mUntitledCount++));
+		//	doc->setUuid();
+		//	doc->setTimeStamp();
+		//	// registerDocument(doc);
+		//	doc->registerContainerIndex(doc->getUuid(), doc.get());
+		//	{
+		//		std::unique_lock lock(mMutex);
+		//		mDocs[doc->getUuid()] = doc;
+		//	}
 
-			setActiveDocument(doc->getUuid());
+		//	setActiveDocument(doc->getUuid());
 
-			return doc;
-		}
-		bool closeDocument(const std::string& uuid);
-		void closeAllDocuments();
-		void setActiveDocument(const std::string& uuid);
-		std::shared_ptr<NodeBase> getActiveDocument() const;
-		std::shared_ptr<NodeBase> getDocument(const std::string& uuid) const;
-		std::vector<std::shared_ptr<NodeBase>> getAllDocuments() const;
+		//	return doc;
+		//}
+
+		bool add(std::unique_ptr<Document> doc);
+		bool remove(const std::string& uuid);
+		void removeAll();
+		void setActive(const std::string& uuid);
+		Document* getActive() const;
+		Document* get(const std::string& uuid) const;
+		size_t getCount();
+		std::vector<Document*> getAll() const;
 
 	private:
 		mutable std::shared_mutex mMutex;
 		std::string mActiveDocUuid;
-		std::unordered_map<std::string, std::shared_ptr<NodeBase>> mDocs;
+		std::unordered_map<std::string, std::unique_ptr<Document>> mDocs;
 		std::atomic<size_t> mUntitledCount;
 		
 	};

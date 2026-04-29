@@ -11,23 +11,30 @@
 
 namespace core
 {
-	enum class ObjectType
-	{
+    enum class ObjectType
+    {
 		//OBJECT,
 
-		//NODE,
 		PROPERTY,
+		PROPERTY_SET,
 
-		ELEMENT,
-		GROUP,
+		NODE,
+		NODE_SET,
 
-		DOCUMENT
-	};
+        //ATTRIBUTE,
+        //ATTRIBUTE_GROUP,
 
-	class ObjectBase
+        //ELEMENT,
+        //ELEMENT_GROUP,
+
+        //DOCUMENT
+    };
+
+    class ObjectBase
 	{
 	public:
-		ObjectBase() = default;
+		ObjectBase() : mParent(nullptr) {};
+		ObjectBase(ObjectBase* parent) : mParent(parent) {};
 		virtual ~ObjectBase() = default;
 
 		ObjectBase(const ObjectBase&) = delete;
@@ -38,30 +45,16 @@ namespace core
 		virtual bool read(const nlohmann::json& j) = 0;
 		virtual nlohmann::json write() const = 0;
 
-		// // 轻量类型查询接口：用于在基类指针上判断对象是否兼容某个派生类型。
-		// // 这比在业务代码中反复写 dynamic_cast 更集中，也更便于后续替换实现。
-		// template <typename T>
-		// bool is() const
-		// {
-		// 	return dynamic_cast<const T*>(this) != nullptr;
-		// }
-
-		// template <typename T>
-		// T* as()
-		// {
-		// 	return dynamic_cast<T*>(this);
-		// }
-
-		// template <typename T>
-		// const T* as() const
-		// {
-		// 	return dynamic_cast<const T*>(this);
-		// }
-
 		virtual void attach() = 0;
 		virtual void detach() = 0;
-		//virtual void update() = 0;
 
 		virtual ObjectType getObjectType() const = 0;
+
+		void setParent(ObjectBase* parent) { mParent = parent; }
+		ObjectBase* getParent() const { return mParent; }
+
+	protected:
+		ObjectBase* mParent;
+
 	};
 } // namespace core

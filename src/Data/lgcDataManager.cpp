@@ -6,7 +6,7 @@
  */
 #include "Data/lgcDataManager.hpp"
 
-#include "Data/virNodeBase.hpp"
+#include "Data/lgcDocument.hpp"
 
 namespace core
 {
@@ -29,12 +29,21 @@ namespace core
 
 	void DataManager::shutdown()
 	{
-		closeAllDocuments();
+		removeAll();
 	}
 
-	bool DataManager::closeDocument(const std::string& uuid)
+	bool DataManager::add(std::unique_ptr<Document> doc)
 	{
-		std::shared_ptr<NodeBase> docToClose = nullptr;
+		mDocs[doc->getUuid()] = std::move(doc);
+		{
+			std::unique_lock<std::shared_mutex> lock(mMutex);
+			mActiveDocUuid = doc->getUuid();
+		}
+	}
+
+	bool DataManager::remove(const std::string& uuid)
+	{
+		//std::unique_ptr<Document> docToClose = nullptr;
 		bool isActive = false;
 
 		{
@@ -42,7 +51,7 @@ namespace core
 			auto it = mDocs.find(uuid);
 			if (it == mDocs.end()) return false;
 
-			docToClose = it->second;
+			//docToClose = std::move(it->second);
 			isActive = (mActiveDocUuid == uuid);
 
 			mDocs.erase(it);
@@ -56,13 +65,13 @@ namespace core
 				if (!mDocs.empty())
 					nextId = mDocs.begin()->first;
 			}
-			setActiveDocument(nextId);
+			setActive(nextId);
 		}
 
 		return true;
 	}
 
-	void DataManager::closeAllDocuments()
+	void DataManager::removeAll()
 	{
 		{
 			std::unique_lock<std::shared_mutex> lock(mMutex);
@@ -72,27 +81,31 @@ namespace core
 		}
 	}
 
-	void DataManager::setActiveDocument(const std::string& uuid)
+	void DataManager::setActive(const std::string& uuid)
 	{
-		std::shared_ptr<NodeBase> oldDoc = nullptr;
-		std::shared_ptr<NodeBase> newDoc = nullptr;
+		//std::shared_ptr<NodeBase> oldDoc = nullptr;
+		//std::shared_ptr<NodeBase> newDoc = nullptr;
 
 		{
 			std::shared_lock<std::shared_mutex> lock(mMutex);
 
-			if (mActiveDocUuid == uuid) return;
-			if (!mActiveDocUuid.empty())
-			{
-				auto it = mDocs.find(mActiveDocUuid);
-				if (it != mDocs.end()) oldDoc = it->second;
-			}
-			if (!uuid.empty())
-			{
-				auto it = mDocs.find(uuid);
-				if (it != mDocs.end()) newDoc = it->second;
-			}
+			if (mActiveDocUuid == uuid || uuid.empty()) return;
+			//if (!mActiveDocUuid.empty())
+			//{
+			//	auto it = mDocs.find(mActiveDocUuid);
+			//	if (it != mDocs.end())
+			//		oldDoc = it->second;
+			//}
+			//if (!uuid.empty())
+			//{
+			//	auto it = mDocs.find(uuid);
+			//	if (it != mDocs.end())
+			//		newDoc = it->second;
+			//}
+			auto it = mDocs.find(uuid);
+			if (it == mDocs.end()) return;
 
-			if (!uuid.empty() && !newDoc) return;
+			//if (!uuid.empty() && !newDoc) return;
 		}
 		{
 			std::unique_lock<std::shared_mutex> lock(mMutex);
@@ -100,33 +113,38 @@ namespace core
 		}
 	}
 
-	std::shared_ptr<NodeBase> DataManager::getActiveDocument() const
+	Document* DataManager::getActive() const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		if (mActiveDocUuid.empty()) return nullptr;
 
 		auto it = mDocs.find(mActiveDocUuid);
 		if (it != mDocs.end())
-			return it->second;
+			return it->second.get();
 		return nullptr;
 	}
 
-	std::shared_ptr<NodeBase> DataManager::getDocument(const std::string& uuid) const
+	Document* DataManager::get(const std::string& uuid) const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		auto it = mDocs.find(uuid);
 		if (it != mDocs.end())
-			return it->second;
+			return it->second.get();
 		return nullptr;
 	}
 
-	std::vector<std::shared_ptr<NodeBase>> DataManager::getAllDocuments() const
+	size_t DataManager::getCount()
+	{
+		return mUntitledCount++;
+	}
+
+	std::vector<Document*> DataManager::getAll() const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
-		std::vector<std::shared_ptr<NodeBase>> list;
+		std::vector<Document*> list;
 		list.reserve(mDocs.size());
 		for (const auto& kv : mDocs)
-			list.push_back(kv.second);
+			list.push_back(kv.second.get());
 		return list;
 	}
 } // namespace core

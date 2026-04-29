@@ -16,12 +16,13 @@
 #include <queue>
 #include <stack>
 
-#include <Log/lgcLogManager.hpp>
+#include "Log/lgcLogManager.hpp"
+#include "Utility/lgcString.hpp"
 
 namespace core
 {
 	Document::Document()
-		: Group(), mPath(""), mCommandManager(50), mCnt(0), mTransactionCount(0)
+		: NodeSetBase(), mPath(""), mCommandManager(50), mCnt(0), mTransactionCount(0)
 	{
 
 	}
@@ -87,12 +88,12 @@ namespace core
 			if (auto* node = static_cast<NodeBase*>(obj))
 			{
 				mNodeIndex[node->getUuid()] = node;
-				for (const auto& [key, prop] : node->getAllProperties())
+				for (const auto& prop : node->getAllProperties())
 					if (prop->isLink()) // 如果该属性是链接状态
 					{
 						// 从属性元数据中提取源 UUID 和 源 Key
 						std::string srcUuid = prop->getLink().uuid;
-						std::string srcKey = prop->getLink().key;
+						std::string srcPath = prop->getLink().path;
 
 						// 利用 Document 的全局索引查找源节点
 						auto it = mNodeIndex.find(srcUuid);
@@ -100,8 +101,8 @@ namespace core
 						{
 							NodeBase* srcNode = it->second;
 							// 从源节点提取值（使用 any 类型擦除接口）
-							PropertyBase* srcProp = srcNode->getProperty(srcKey);
-							insertDagLink(prop.get(), srcProp);
+							PropertyBase* srcProp = srcNode->getProperty(util::string::split(srcPath, '/'));
+							insertDagLink(prop, srcProp);
 						}
 						//else
 						//{
@@ -131,7 +132,7 @@ namespace core
 				auto it = mNodeIndex.find(prop->getLink().uuid);
 				if (it == mNodeIndex.end()) return; // 源节点不存在，可能已经被删除了
 				NodeBase* srcNode = it->second;
-				source = srcNode->getProperty(prop->getLink().key);
+				source = srcNode->getProperty(util::string::split(prop->getLink().path, '/'));
 			}
 		insertDagLink(source, obj);
 	}
@@ -147,7 +148,7 @@ namespace core
 				auto it = mNodeIndex.find(prop->getLink().uuid);
 				if (it == mNodeIndex.end()) return; // 源节点不存在，可能已经被删除了
 				NodeBase* srcNode = it->second;
-				source = srcNode->getProperty(prop->getLink().key);
+				source = srcNode->getProperty(util::string::split(prop->getLink().path, '/'));
 			}
 		deleteDagLink(source, obj);
 	}
@@ -197,13 +198,13 @@ namespace core
 			// 在执行 Node 逻辑前，必须拉取它所有引用属性的最新值。
 			// 否则 execute() 拿到的可能是旧的缓存数据。
 			// 遍历该 Node 的所有属性，检查是否存在外部引用（Link）
-			for (const auto& [key, prop] : node->getAllProperties())
+			for (const auto& prop : node->getAllProperties())
 			{
 				if (prop->isLink()) // 如果该属性是链接状态
 				{
 					// 从属性元数据中提取源 UUID 和 源 Key
 					std::string srcUuid = prop->getLink().uuid;
-					std::string srcKey = prop->getLink().key;
+					std::string srcPath = prop->getLink().path;
 
 					// 利用 Document 的全局索引查找源节点
 					auto it = mNodeIndex.find(srcUuid);
@@ -211,7 +212,7 @@ namespace core
 					{
 						NodeBase* srcNode = it->second;
 						// 从源节点提取值（使用 any 类型擦除接口）
-						const PropertyBase* srcProperty = srcNode->getProperty(srcKey);
+						const PropertyBase* srcProperty = srcNode->getProperty(util::string::split(srcPath, '/'));
 						std::any val = srcProperty->getValueAny();
 						// 将值同步给当前节点的属性
 						prop->sync(val);
@@ -226,7 +227,7 @@ namespace core
 
 			// B. 逻辑刷新 (Logic Evaluation)
 			// 内部调用子类实现的 execute()，并自动清除节点的 mIsDirty 标记
-			if (!node->refresh())
+			if (!node->execute())
 			{
 				allSuccess = false;
 				// 这里可以记录错误日志，或者根据业务决定是否中断

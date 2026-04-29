@@ -8,38 +8,37 @@
 #include "virPropertyBase.hpp"
 
 #include <string>
-#include <any>
 
 namespace core
 {
-    template <typename T> 
+    template <typename T>
     class Property : public PropertyBase
     {
 	public:
 		// 构造函数：必须显式初始化基类
-		Property(const std::string& key, NodeBase* node, const T& val)
-			: PropertyBase(key, node), mVal(val)
-		{
+        Property(NodeBase *node, const std::string &key, const T &val)
+            : PropertyBase(node, key), mVal(val)
+        {
 
 		}
 
-		Property(const std::string& key, NodeBase* node, T&& val)
-			: PropertyBase(key, node), mVal(std::move(val))
-		{
+        Property(NodeBase*node, const std::string &key, T &&val)
+            : PropertyBase(node, key), mVal(std::move(val))
+        {
 
 		}
 
-		virtual ~Property() = default;
+        virtual ~Property() = default;
 
-		// 方便快捷使用的运算符
-		Property<T>& operator=(const T& val)
-		{
+        // 方便快捷使用的运算符
+        Property<T> &operator=(const T &val)
+        {
 			set(val);
 			return *this;
 		}
 
-		Property<T>& operator=(T&& val)
-		{
+        Property<T> &operator=(T &&val)
+        {
 			set(std::move(val));
 			return *this;
 		}
@@ -130,6 +129,11 @@ namespace core
 				// 类型不匹配时保持当前值，交由上层文档逻辑处理。
 			}
 			return true;
+		}
+
+		ObjectType getObjectType() const
+		{
+			return ObjectType::ATTRIBUTE;
 		}
 
 	private:

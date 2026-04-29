@@ -5,7 +5,7 @@
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
 #pragma once
-#include "Data/lgcGroup.hpp"
+#include "Data/virNodeSetBase.hpp"
 
 #include <unordered_map>
 #include <vector>
@@ -39,7 +39,7 @@ namespace core
 
 	};
 
-	class Document : public core::Group
+	class Document : public NodeSetBase
 	{
 	public:
 		Document();
