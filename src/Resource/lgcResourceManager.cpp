@@ -4,12 +4,12 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Resource/lgcResourceManager.hpp"
+#include "Core/Resource/lgcResourceManager.hpp"
 
 #include <algorithm>
 #include <iostream>
 
-#include "Log/lgcLogManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
 
 namespace core
 {

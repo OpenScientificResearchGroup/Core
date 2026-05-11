@@ -4,10 +4,10 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Data/virPropertyContainerBase.hpp"
+#include "Core/Data/virPropertyContainerBase.hpp"
 
-#include "Data/lgcAttributeGroup.hpp"
-#include "Data/lgcAttribute.hpp"
+#include "Core/Data/lgcAttributeGroup.hpp"
+#include "Core/Data/lgcAttribute.hpp"
 
 namespace core
 {
@@ -15,6 +15,8 @@ namespace core
 	{
 
 	}
+
+	PropertyContainerBase::~PropertyContainerBase() = default;
 
 	bool PropertyContainerBase::read(const nlohmann::json& j)
 	{
@@ -31,7 +33,7 @@ namespace core
 				if (value.is_object())
 				{
 					std::unique_ptr<AttributeGroup> newAttributeGroup;
-					newAttributeGroup = std::make_unique<AttributeGroup>(this);
+					newAttributeGroup = std::make_unique<AttributeGroup>();
 					if (newAttributeGroup)
 					{
 						newAttributeGroup->setName(key);
@@ -98,6 +100,16 @@ namespace core
 
 		return result;
 	}
+
+    const std::unordered_map<std::string, std::unique_ptr<PropertyBase>>& PropertyContainerBase::getProperties() const
+    {
+        return mProperties;
+    }
+
+    const std::unordered_map<std::string, std::unique_ptr<PropertySetBase>>& PropertyContainerBase::getPropertySets() const
+    {
+        return mPropertySets;
+    }
 
 	PropertyBase* PropertyContainerBase::getProperty(const std::vector<std::string>& path) const
 	{

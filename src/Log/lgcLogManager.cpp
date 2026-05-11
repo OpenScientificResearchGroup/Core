@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Log/lgcLogManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
 #include <filesystem> // C++17 标准库，用于创建目录
 #include <mutex>
 #include <vector>

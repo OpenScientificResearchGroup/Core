@@ -4,10 +4,10 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Data/virPropertySetBase.hpp"
+#include "Core/Data/virPropertySetBase.hpp"
 
-#include "Data/virNodeBase.hpp"
-#include "Data/lgcAttribute.hpp"
+#include "Core/Data/virNodeBase.hpp"
+#include "Core/Data/lgcAttribute.hpp"
 
 namespace core
 {
@@ -30,6 +30,38 @@ namespace core
 	const std::string& PropertySetBase::getName() const
 	{
 		return selectProperty<std::string>("property_set_name")->get();
+	}
+
+	std::vector<std::string> PropertySetBase::getPath() const
+	{
+		std::vector<std::string> path;
+
+		// 1. 首先放入属性自身的 Key
+		path.push_back(this->getName());
+
+		// 2. 开始向上回溯父对象
+		ObjectBase* current = mParent;
+
+		while (current != nullptr)
+		{
+			// 检查是否已经到达了 Node 层级
+			// 路径通常是相对于 Node 的，所以到达 Node 时停止
+            if (current->getObjectType() == ObjectType::NODE || current->getObjectType() == ObjectType::NODE_SET || current->getObjectType() == ObjectType::DOCUMENT)
+                break;
+
+			// 如果是属性组（AttributeGroup/PropertySetBase），获取它的名称
+			// 这里假设你在 ObjectBase 中有 getName() 或者在这些类里有对应的成员
+			path.push_back(static_cast<PropertySetBase*>(current)->getName());
+
+			// 继续向上移动
+			current = current->getParent();
+		}
+
+		// 3. 因为是回溯，结果是 [属性, 子组, 父组]，需要反转
+		std::reverse(path.begin(), path.end());
+
+		return path;
+
 	}
 
 	//bool PropertySetBase::read(const nlohmann::json& j)

@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Service/lgcServiceManager.hpp"
+#include "Core/Service/lgcServiceManager.hpp"
 #include <iostream>
 
 namespace core

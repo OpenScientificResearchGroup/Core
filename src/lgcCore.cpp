@@ -4,20 +4,20 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "lgcCore.hpp"
+#include "Core/lgcCore.hpp"
 
 #include <string>
 
-#include "Config/lgcConfigManager.hpp"
-#include "Plugin/lgcPluginManager.hpp"
-#include "Log/lgcLogManager.hpp"
-#include "Task/lgcTaskManager.hpp"
-#include "Ui/lgcUiManager.hpp"
-#include "Service/lgcServiceManager.hpp"
-#include "Data/lgcDataManager.hpp"
-#include "Event/lgcEventManager.hpp"
-#include "I18n/lgcI18nManager.hpp"
-#include "Resource/lgcResourceManager.hpp"
+#include "Core/Config/lgcConfigManager.hpp"
+#include "Core/Plugin/lgcPluginManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
+#include "Core/Task/lgcTaskManager.hpp"
+#include "Core/Ui/lgcUiManager.hpp"
+#include "Core/Service/lgcServiceManager.hpp"
+#include "Core/Data/lgcDataManager.hpp"
+#include "Core/Event/lgcEventManager.hpp"
+#include "Core/I18n/lgcI18nManager.hpp"
+#include "Core/Resource/lgcResourceManager.hpp"
 
 namespace core
 {

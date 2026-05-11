@@ -4,9 +4,9 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Command/lgcCommandManager.hpp"
+#include "Core/Command/lgcCommandManager.hpp"
 
-#include "Log/lgcLogManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
 
 namespace core
 {

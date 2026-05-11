@@ -4,12 +4,12 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Task/lgcTaskManager.hpp"
+#include "Core/Task/lgcTaskManager.hpp"
 
 #include <thread>
 #include <mutex>
 
-#include "Log/lgcLogManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
 
 namespace core
 {

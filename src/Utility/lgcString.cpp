@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Utility/lgcString.hpp"
+#include "Core/Utility/lgcString.hpp"
 
 #include <sstream>
 #include <vector>

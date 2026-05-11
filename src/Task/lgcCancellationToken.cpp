@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Task/lgcCancellationToken.hpp"
+#include "Core/Task/lgcCancellationToken.hpp"
 
 namespace core
 {

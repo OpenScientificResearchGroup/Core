@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Config/lgcConfigManager.hpp"
+#include "Core/Config/lgcConfigManager.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -12,8 +12,8 @@
 
 #include <nlohmann/json.hpp>
 
-#include "Log/lgcLogManager.hpp"
-#include "Utility/lgcString.hpp"
+#include "Core/Log/lgcLogManager.hpp"
+#include "Core/Utility/lgcString.hpp"
 
 namespace core
 {

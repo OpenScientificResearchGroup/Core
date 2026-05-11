@@ -4,9 +4,9 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Data/lgcDataManager.hpp"
+#include "Core/Data/lgcDataManager.hpp"
 
-#include "Data/lgcDocument.hpp"
+#include "Core/Data/virDocumentBase.hpp"
 
 namespace core
 {
@@ -15,6 +15,9 @@ namespace core
 		static DataManager instance;
 		return instance;
 	}
+
+	DataManager::DataManager() = default;
+	DataManager::~DataManager() = default;
 
 	bool DataManager::init()
 	{
@@ -32,18 +35,20 @@ namespace core
 		removeAll();
 	}
 
-	bool DataManager::add(std::unique_ptr<Document> doc)
+	bool DataManager::add(std::unique_ptr<DocumentBase> doc)
 	{
-		mDocs[doc->getUuid()] = std::move(doc);
 		{
 			std::unique_lock<std::shared_mutex> lock(mMutex);
-			mActiveDocUuid = doc->getUuid();
+			std::string uuid = doc->getUuid();
+			mDocs[uuid] = std::move(doc);
+			mActiveDocUuid = uuid;
 		}
+		return true;
 	}
 
 	bool DataManager::remove(const std::string& uuid)
 	{
-		//std::unique_ptr<Document> docToClose = nullptr;
+		//std::unique_ptr<DocumentBase> docToClose = nullptr;
 		bool isActive = false;
 
 		{
@@ -113,7 +118,7 @@ namespace core
 		}
 	}
 
-	Document* DataManager::getActive() const
+	DocumentBase* DataManager::getActive() const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		if (mActiveDocUuid.empty()) return nullptr;
@@ -124,7 +129,7 @@ namespace core
 		return nullptr;
 	}
 
-	Document* DataManager::get(const std::string& uuid) const
+	DocumentBase* DataManager::get(const std::string& uuid) const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
 		auto it = mDocs.find(uuid);
@@ -138,10 +143,10 @@ namespace core
 		return mUntitledCount++;
 	}
 
-	std::vector<Document*> DataManager::getAll() const
+	std::vector<DocumentBase*> DataManager::getAll() const
 	{
 		std::shared_lock<std::shared_mutex> lock(mMutex);
-		std::vector<Document*> list;
+		std::vector<DocumentBase*> list;
 		list.reserve(mDocs.size());
 		for (const auto& kv : mDocs)
 			list.push_back(kv.second.get());

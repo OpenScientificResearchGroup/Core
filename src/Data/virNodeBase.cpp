@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Data/virNodeBase.hpp"
+#include "Core/Data/virNodeBase.hpp"
 
 #include <string>
 #include <unordered_map>
@@ -20,7 +20,7 @@ namespace core
 		insertProperty<std::string>("uuid", "");
 		insertProperty<std::string>("name", "");
 		insertProperty<std::string>("type", "");
-		insertProperty<long long>("timestamp", 0);
+		insertProperty<unsigned long long>("timestamp", 0);
 	}
 
 	ObjectType NodeBase::getObjectType() const
@@ -100,14 +100,14 @@ namespace core
 		return selectProperty<std::string>("type")->get();
 	}
 
-	void NodeBase::setTimestamp(uint64_t timestamp)
+	void NodeBase::setTimestamp(unsigned long long timestamp)
 	{
-		updateProperty<long long>("timestamp", static_cast<long long>(timestamp));
+		updateProperty<unsigned long long>("timestamp", timestamp);
 	}
 
-	const long long& NodeBase::getTimestamp() const
+	const unsigned long long& NodeBase::getTimestamp() const
 	{
-		return selectProperty<long long>("timestamp")->get();
+		return selectProperty<unsigned long long>("timestamp")->get();
 	}
 
 	//const std::unordered_map<std::string, std::unique_ptr<PropertyBase>>& NodeBase::getAllAttributes() const
@@ -173,5 +173,10 @@ namespace core
 	void NodeBase::detach()
 	{
 		static_cast<PropertyContainerBase*>(mParent)->onDetach(this);
+	}
+
+	void NodeBase::markDirty(PropertyBase* property)
+	{
+		mDirtyProperties.push_back(property);
 	}
 }

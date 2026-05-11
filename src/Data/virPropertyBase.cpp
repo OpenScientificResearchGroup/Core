@@ -4,16 +4,20 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Data/virPropertyBase.hpp"
+#include "Core/Data/virPropertyBase.hpp"
 
-#include "Data/virPropertySetBase.hpp"
-#include "Data/virNodeBase.hpp"
+#include "Core/Service/lgcServiceManager.hpp"
+
+#include "Core/Command/virCommandBase.hpp"
+
+#include "Core/Data/virPropertySetBase.hpp"
+#include "Core/Data/virNodeBase.hpp"
 
 namespace core
 {
 	PropertyBase::PropertyBase(PropertyContainerBase* propertySet, const std::string& key)
 		//: mKey(key), mPropertySet(propertySet), mIsReadOnly(false), mIsVisible(true)
-		: ObjectBase(propertySet), mKey(key)
+		: ObjectBase(propertySet), mKey(key), mIsOutput(false)
 	{
 		mLink.uuid.clear();
 		mLink.path.clear();
@@ -31,7 +35,7 @@ namespace core
 
 		while (current != nullptr)
 		{
-			if (current->getObjectType() == ObjectType::NODE || current->getObjectType() == ObjectType::NODE_SET)
+			if (current->getObjectType() == ObjectType::NODE || current->getObjectType() == ObjectType::NODE_SET || current->getObjectType() == ObjectType::DOCUMENT)
 				return static_cast<NodeBase*>(current);
 
 			// 继续向上追溯
@@ -39,6 +43,37 @@ namespace core
 		}
 
 		return nullptr;
+	}
+
+	std::vector<std::string> PropertyBase::getPath() const
+	{
+		std::vector<std::string> path;
+
+		// 1. 首先放入属性自身的 Key
+		path.push_back(this->mKey);
+
+		// 2. 开始向上回溯父对象
+		ObjectBase* current = mParent;
+
+		while (current != nullptr)
+		{
+			// 检查是否已经到达了 Node 层级
+			// 路径通常是相对于 Node 的，所以到达 Node 时停止
+            if (current->getObjectType() == ObjectType::NODE || current->getObjectType() == ObjectType::NODE_SET || current->getObjectType() == ObjectType::DOCUMENT)
+                break;
+
+			// 如果是属性组（AttributeGroup/PropertySetBase），获取它的名称
+			// 这里假设你在 ObjectBase 中有 getName() 或者在这些类里有对应的成员
+			path.push_back(static_cast<PropertySetBase*>(current)->getName());
+
+			// 继续向上移动
+			current = current->getParent();
+		}
+
+		// 3. 因为是回溯，结果是 [属性, 子组, 父组]，需要反转
+		std::reverse(path.begin(), path.end());
+
+		return path;
 	}
 
 	PropertyContainerBase* PropertyBase::getContainer() const
@@ -51,7 +86,7 @@ namespace core
 		return mLink.isActive;
 	}
 
-	void PropertyBase::setLink(const std::string& uuid, const std::string& key = "")
+	void PropertyBase::setLink(const std::string& uuid, const std::string& key)
 	{
 		if (mLink.isActive)
 			unlink();
@@ -93,6 +128,31 @@ namespace core
 		if (!mLink.path.empty())
 			j["property"] = mLink.path;
 		return j;
+	}
+
+	std::string PropertyBase::getKey() const
+	{
+		return mKey;
+	}
+
+	//bool PropertyBase::getDirty() const
+	//{
+	//	return mIsDirty;
+	//}
+
+	//void PropertyBase::setDirty(bool isDirty)
+	//{
+	//	mIsDirty = isDirty;
+	//}
+
+	bool PropertyBase::getMode() const
+	{
+		return mIsOutput;
+	}
+
+	void PropertyBase::setMode(bool isOutput)
+	{
+		mIsOutput = isOutput;
 	}
 
 	//const bool PropertyBase::isReadOnly() const

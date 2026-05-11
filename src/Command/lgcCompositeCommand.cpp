@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Command/lgcCompositeCommand.hpp"
+#include "Core/Command/lgcCompositeCommand.hpp"
 
 namespace core
 {

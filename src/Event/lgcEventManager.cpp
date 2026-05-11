@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Event/lgcEventManager.hpp"
+#include "Core/Event/lgcEventManager.hpp"
 
 namespace core
 {

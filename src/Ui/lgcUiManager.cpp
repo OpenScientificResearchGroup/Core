@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Ui/lgcUiManager.hpp"
+#include "Core/Ui/lgcUiManager.hpp"
 
 #include <fstream>
 #include <iostream>
@@ -15,7 +15,7 @@
 
 #include <nlohmann/json.hpp>
 
-#include "Log/lgcLogManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
 
 namespace core
 {

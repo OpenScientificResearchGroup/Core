@@ -4,7 +4,7 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "I18n/lgcI18nManager.hpp"
+#include "Core/I18n/lgcI18nManager.hpp"
 
 #include <fstream>
 

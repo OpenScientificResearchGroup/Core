@@ -4,8 +4,8 @@
  *
  * Copyright (c) 2026 Core contributors and Euler LeE.
  */
-#include "Plugin/lgcPluginManager.hpp"
-#include "Log/lgcLogManager.hpp"
+#include "Core/Plugin/lgcPluginManager.hpp"
+#include "Core/Log/lgcLogManager.hpp"
 
 #include <fstream>
 #include <iostream>
