@@ -101,7 +101,7 @@ namespace core
 	{
 		mPendingSet.insert(obj);
 
-		if (obj->getObjectType() == ObjectType::NODE)
+		if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET)
 			if (auto* node = static_cast<NodeBase*>(obj))
 			{
 				mNodeIndex[node->getUuid()] = node;
@@ -132,7 +132,7 @@ namespace core
 
 	void DocumentBase::onDetach(ObjectBase* obj)
 	{
-		if (obj->getObjectType() == ObjectType::NODE)
+		if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET)
 			if (auto* node = static_cast<NodeBase*>(obj))
 				mNodeIndex.erase(node->getUuid());
 		deleteDagNode(obj);
@@ -194,7 +194,7 @@ namespace core
 	{
 		if (mTransactionCount <= 0) return;
 		if (--mTransactionCount == 0/* && mPendingExecute*/)
-			execute();
+			run();
 	}
 
 	bool DocumentBase::commit()
@@ -252,7 +252,7 @@ namespace core
 					}
 				}
 			}
-			else if (obj->getObjectType() == ObjectType::NODE)
+			else if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET || obj->getObjectType() == ObjectType::DOCUMENT)
 			{
 				auto* node = static_cast<NodeBase*>(obj);
 				// --- 逻辑刷新 ---

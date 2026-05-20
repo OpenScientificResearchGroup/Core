@@ -53,8 +53,8 @@ namespace core
 
 		//bool getDirty() const;
 		//void setDirty(bool isDirty);
-		bool getMode() const;
-		void setMode(bool isOutput);
+		//bool getMode() const;
+		//void setMode(bool isOutput);
 
 		// 强制同步：由 Document 传入源属性的当前值，Property 自身不负责查找来源。
 		virtual bool sync(const std::any& sourceValue) = 0;

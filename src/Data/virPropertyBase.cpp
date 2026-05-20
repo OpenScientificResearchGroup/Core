@@ -145,15 +145,15 @@ namespace core
 	//	mIsDirty = isDirty;
 	//}
 
-	bool PropertyBase::getMode() const
-	{
-		return mIsOutput;
-	}
+	// bool PropertyBase::getMode() const
+	// {
+	// 	return mIsOutput;
+	// }
 
-	void PropertyBase::setMode(bool isOutput)
-	{
-		mIsOutput = isOutput;
-	}
+	// void PropertyBase::setMode(bool isOutput)
+	// {
+	// 	mIsOutput = isOutput;
+	// }
 
 	//const bool PropertyBase::isReadOnly() const
 	//{

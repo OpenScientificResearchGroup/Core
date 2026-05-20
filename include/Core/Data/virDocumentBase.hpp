@@ -76,6 +76,7 @@ namespace core
 		void startTransaction();
 		void endTransaction();
 		bool commit();
+		virtual bool run() = 0;
 		//bool execute() override;
 
 	private:
