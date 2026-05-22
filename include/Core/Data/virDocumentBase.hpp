@@ -92,7 +92,8 @@ namespace core
 		std::string mPath;															// 当前文档路径，保存时更新
 		core::CommandManager mCommandManager;										// 命令管理器，用于处理撤销/重做等操作
 		size_t mCnt;																// 用于生成新节点的计数器，确保每个新节点都有唯一的名称
-		int mTransactionCount = 0;													// 当前事务计数，支持嵌套事务
+		int mTransactionCount;														// 当前事务计数，支持嵌套事务
+		bool mIsLoading;															// 标记当前是否处于加载状态，避免在 load 时触发不必要的事件
 
 		std::unordered_set<ObjectBase*> mPendingSet;								// 脏对象集合，使用 set 自动去重
 		std::unordered_set<ObjectBase*> mPendingLinks;								// 记录哪些对象的 Link 发生了变化，需要在 execute 时重新连线

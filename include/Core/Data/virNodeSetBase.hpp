@@ -28,7 +28,8 @@ namespace core
 
 		virtual ObjectType getObjectType() const override;
 
-		const std::unordered_map<std::string, std::unique_ptr<NodeBase>>& getAllNodes() const;
+		const std::unordered_map<std::string, std::unique_ptr<NodeBase>>& getNodes() const;
+
 		bool insertNode(std::unique_ptr<NodeBase> node);
 
 		template <typename T>
@@ -41,6 +42,21 @@ namespace core
 		}
 
 		bool deleteNode(const std::string& uuid);
+
+		const std::unordered_map<std::string, std::unique_ptr<NodeSetBase>>& getNodeSets() const;
+
+		bool insertNodeSet(std::unique_ptr<NodeSetBase> nodeSet);
+
+		template <typename T>
+		T* selectNodeSet(const std::string& uuid)
+		{
+			auto it = mNodeSets.find(uuid);
+			if (it == mNodeSets.end())
+				return nullptr;
+			return dynamic_cast<T*>(it->second.get());
+		}
+
+		bool deleteNodeSet(const std::string& uuid);
 
 		template <typename T>
 		T* findNode(const std::vector<std::string>& path)

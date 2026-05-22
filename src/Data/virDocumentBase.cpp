@@ -34,7 +34,7 @@ namespace core
 	}
 
 	DocumentBase::DocumentBase()
-		: NodeSetBase(), mPath(""), mCommandManager(50), mCnt(0), mTransactionCount(0)
+		: NodeSetBase(), mPath(""), mCommandManager(50), mCnt(0), mTransactionCount(0), mIsLoading(false)
 	{
 
 	}
@@ -48,13 +48,14 @@ namespace core
 	{
 		// 实现加载逻辑
 		mPath = path;
-
 		std::ifstream ifs(mPath);
 		if (!ifs.is_open()) return false;
 		std::stringstream buffer;
 		buffer << ifs.rdbuf();
 		nlohmann::json file = nlohmann::json::parse(buffer.str());
-		if (!read(file)) return false;
+		mIsLoading = true; // 标记正在加载，避免触发事件
+		if (!read(file)) { mIsLoading = false; return false; }
+		mIsLoading = false;
 		return true;
 	}
 
@@ -94,40 +95,43 @@ namespace core
 
 	void DocumentBase::onUpdate(ObjectBase* obj)
 	{
+		if (mIsLoading) return; // 加载时不触发更新事件
 		mPendingSet.insert(obj);
+		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
 	}
 
 	void DocumentBase::onAttach(ObjectBase* obj)
 	{
-		mPendingSet.insert(obj);
-
 		if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET)
-			if (auto* node = static_cast<NodeBase*>(obj))
-			{
-				mNodeIndex[node->getUuid()] = node;
-				for (const auto& prop : node->getAllProperties())
-					if (prop->isLink()) // 如果该属性是链接状态
-					{
-						// 从属性元数据中提取源 UUID 和 源 Key
-						std::string srcUuid = prop->getLink().uuid;
-						std::string srcPath = prop->getLink().path;
+		{
+			auto* node = static_cast<NodeBase*>(obj);
+			mNodeIndex[node->getUuid()] = node;
+			for (const auto& prop : node->getAllProperties())
+				if (prop->isLink()) // 如果该属性是链接状态
+				{
+					// 从属性元数据中提取源 UUID 和 源 Key
+					std::string srcUuid = prop->getLink().uuid;
+					std::string srcPath = prop->getLink().path;
 
-						// 利用 DocumentBase 的全局索引查找源节点
-						auto it = mNodeIndex.find(srcUuid);
-						if (it != mNodeIndex.end())
-						{
-							NodeBase* srcNode = it->second;
-							// 从源节点提取值（使用 any 类型擦除接口）
-							PropertyBase* srcProp = srcNode->getProperty(util::string::split(srcPath, '/'));
-							insertDagLink(prop, srcProp);
-						}
-						//else
-						//{
-						//	// 如果源节点找不到了（比如被删了），在此处处理失效逻辑
-						//	prop->resetLink();
-						//}
+					// 利用 DocumentBase 的全局索引查找源节点
+					auto it = mNodeIndex.find(srcUuid);
+					if (it != mNodeIndex.end())
+					{
+						NodeBase* srcNode = it->second;
+						// 从源节点提取值（使用 any 类型擦除接口）
+						PropertyBase* srcProp = srcNode->getProperty(util::string::split(srcPath, '/'));
+						insertDagLink(prop, srcProp);
 					}
-			}
+					//else
+					//{
+					//	// 如果源节点找不到了（比如被删了），在此处处理失效逻辑
+					//	prop->resetLink();
+					//}
+				}
+		}
+		if (mIsLoading) return; // 加载时不触发更新事件
+		mPendingSet.insert(obj);
+		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
 	}
 
 	void DocumentBase::onDetach(ObjectBase* obj)
@@ -136,10 +140,12 @@ namespace core
 			if (auto* node = static_cast<NodeBase*>(obj))
 				mNodeIndex.erase(node->getUuid());
 		deleteDagNode(obj);
+		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
 	}
 
 	void DocumentBase::onLink(ObjectBase* obj)
 	{
+		if (mIsLoading) return; // 加载时不触发更新事件
 		mPendingSet.insert(obj);
 
 		ObjectBase* source = nullptr;
@@ -152,6 +158,7 @@ namespace core
 				source = srcNode->getProperty(util::string::split(prop->getLink().path, '/'));
 			}
 		insertDagLink(source, obj);
+		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
 	}
 
 	void DocumentBase::onUnlink(ObjectBase* obj)
@@ -168,6 +175,7 @@ namespace core
 				source = srcNode->getProperty(util::string::split(prop->getLink().path, '/'));
 			}
 		deleteDagLink(source, obj);
+		if(mTransactionCount == 0) run();// 如果不是在事务中，立即执行
 	}
 
 	//void DocumentBase::update()
