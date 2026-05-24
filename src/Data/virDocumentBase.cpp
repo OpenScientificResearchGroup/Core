@@ -97,7 +97,7 @@ namespace core
 	{
 		if (mIsLoading) return; // 加载时不触发更新事件
 		mPendingSet.insert(obj);
-		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
+		if (mTransactionCount == 0 && !mIsExecuting) run();// 如果不是在事务中且当前不在结算过程中，立即执行
 	}
 
 	void DocumentBase::onAttach(ObjectBase* obj)
@@ -131,7 +131,7 @@ namespace core
 		}
 		if (mIsLoading) return; // 加载时不触发更新事件
 		mPendingSet.insert(obj);
-		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
+		if (mTransactionCount == 0 && !mIsExecuting) run();// 如果不是在事务中且当前不在结算过程中，立即执行
 	}
 
 	void DocumentBase::onDetach(ObjectBase* obj)
@@ -140,7 +140,7 @@ namespace core
 			if (auto* node = static_cast<NodeBase*>(obj))
 				mNodeIndex.erase(node->getUuid());
 		deleteDagNode(obj);
-		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
+		if (mTransactionCount == 0 && !mIsExecuting) run();// 如果不是在事务中且当前不在结算过程中，立即执行
 	}
 
 	void DocumentBase::onLink(ObjectBase* obj)
@@ -158,7 +158,7 @@ namespace core
 				source = srcNode->getProperty(util::string::split(prop->getLink().path, '/'));
 			}
 		insertDagLink(source, obj);
-		if (mTransactionCount == 0) run();// 如果不是在事务中，立即执行
+		if (mTransactionCount == 0 && !mIsExecuting) run();// 如果不是在事务中且当前不在结算过程中，立即执行
 	}
 
 	void DocumentBase::onUnlink(ObjectBase* obj)
@@ -175,7 +175,7 @@ namespace core
 				source = srcNode->getProperty(util::string::split(prop->getLink().path, '/'));
 			}
 		deleteDagLink(source, obj);
-		if(mTransactionCount == 0) run();// 如果不是在事务中，立即执行
+		if(mTransactionCount == 0 && !mIsExecuting) run();// 如果不是在事务中且当前不在结算过程中，立即执行
 	}
 
 	//void DocumentBase::update()
@@ -205,73 +205,84 @@ namespace core
 			run();
 	}
 
+	//void DocumentBase::insertCommitCallback(std::function<void()> callback)
+	//{
+	//	mCommitCallbacks.push_back(callback);
+	//}
+
 	bool DocumentBase::commit()
 	{
-		if (mPendingSet.empty()) return true;
-
-		// 1. 获取精准的受影响对象序列 (包含 Node 和 Property)
-		std::vector<ObjectBase*> evalOrder = calculateEvaluationOrder(mPendingSet);
-
+		if (mPendingSet.empty() || mIsExecuting) return true;
+		mIsExecuting = true; // 开启守卫，拦截所有重入请求
 		bool allSuccess = true;
 
-		// 2. 按照拓扑时序执行流水线
-		for (ObjectBase* obj : evalOrder)
+		while (!mPendingSet.empty()/* && iterations < mMaxIterations*/)
 		{
-			// 检查对象是否依然在文档中（防止事务中途被级联删除的对象残留在序列里）
-			// 如果是属性，检查其所属节点是否存活
-			if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET || obj->getObjectType() == ObjectType::DOCUMENT)
-			{
-				auto* node = static_cast<NodeBase*>(obj);
-				if (mNodeIndex.find(node->getUuid()) == mNodeIndex.end()) continue;
-			}
-			else if (obj->getObjectType() == ObjectType::PROPERTY)
-			{
-				auto* prop = static_cast<PropertyBase*>(obj);
-				if (mNodeIndex.find(prop->getNode()->getUuid()) == mNodeIndex.end()) continue;
-			}
+			// 1. 获取精准的受影响对象序列 (包含 Node 和 Property)
+			std::vector<ObjectBase*> evalOrder = calculateEvaluationOrder(mPendingSet);
 
-			// 分类处理
-			if (obj->getObjectType() == ObjectType::PROPERTY)
+			// 2. 清理待办集
+			mPendingSet.clear();
+
+			// 3. 按照拓扑时序执行流水线
+			for (ObjectBase* obj : evalOrder)
 			{
-				auto* prop = static_cast<PropertyBase*>(obj);
-				if (prop->isLink())
+				// 检查对象是否依然在文档中（防止事务中途被级联删除的对象残留在序列里）
+				// 如果是属性，检查其所属节点是否存活
+				if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET || obj->getObjectType() == ObjectType::DOCUMENT)
 				{
-					// --- 精准同步 ---
-					// 只同步这一个属性，而不是遍历 Node 的全部属性
-					// 从属性元数据中提取源 UUID 和 源 Key
-					std::string srcUuid = prop->getLink().uuid;
-					std::string srcPath = prop->getLink().path;
+					auto* node = static_cast<NodeBase*>(obj);
+					if (mNodeIndex.find(node->getUuid()) == mNodeIndex.end()) continue;
+				}
+				else if (obj->getObjectType() == ObjectType::PROPERTY)
+				{
+					auto* prop = static_cast<PropertyBase*>(obj);
+					if (mNodeIndex.find(prop->getNode()->getUuid()) == mNodeIndex.end()) continue;
+				}
 
-					// 利用 DocumentBase 的全局索引查找源节点
-					auto it = mNodeIndex.find(srcUuid);
-					if (it != mNodeIndex.end())
+				// 分类处理
+				if (obj->getObjectType() == ObjectType::PROPERTY)
+				{
+					auto* prop = static_cast<PropertyBase*>(obj);
+					if (prop->isLink())
 					{
-						NodeBase* srcNode = it->second;
-						// 从源节点提取值（使用 any 类型擦除接口）
-						const PropertyBase* srcProperty = srcNode->getProperty(util::string::split(srcPath, '/'));
-						std::any val = srcProperty->getValueAny();
-						// 将值同步给当前节点的属性
-						prop->sync(val);
-					}
-					else
-					{
-						// 如果源节点找不到了（比如被删了），在此处处理失效逻辑
-						prop->resetLink();
+						// --- 精准同步 ---
+						// 只同步这一个属性，而不是遍历 Node 的全部属性
+						// 从属性元数据中提取源 UUID 和 源 Key
+						std::string srcUuid = prop->getLink().uuid;
+						std::string srcPath = prop->getLink().path;
+
+						// 利用 DocumentBase 的全局索引查找源节点
+						auto it = mNodeIndex.find(srcUuid);
+						if (it != mNodeIndex.end())
+						{
+							NodeBase* srcNode = it->second;
+							// 从源节点提取值（使用 any 类型擦除接口）
+							const PropertyBase* srcProperty = srcNode->getProperty(util::string::split(srcPath, '/'));
+							std::any val = srcProperty->getValueAny();
+							// 将值同步给当前节点的属性
+							prop->sync(val);
+						}
+						else
+						{
+							// 如果源节点找不到了（比如被删了），在此处处理失效逻辑
+							prop->resetLink();
+						}
 					}
 				}
-			}
-			else if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET || obj->getObjectType() == ObjectType::DOCUMENT)
-			{
-				auto* node = static_cast<NodeBase*>(obj);
-				// --- 逻辑刷新 ---
-				// 此时 node 依赖的所有上游属性已经通过上面的逻辑 sync 过了
-				if (!node->execute())
-					allSuccess = false;
+				else if (obj->getObjectType() == ObjectType::NODE || obj->getObjectType() == ObjectType::NODE_SET || obj->getObjectType() == ObjectType::DOCUMENT)
+				{
+					auto* node = static_cast<NodeBase*>(obj);
+					// --- 逻辑刷新 ---
+					// 此时 node 依赖的所有上游属性已经通过上面的逻辑 sync 过了
+					if (!node->execute())
+						allSuccess = false;
+				}
 			}
 		}
-
-		// 3. 清理待办集
-		mPendingSet.clear();
+		mIsExecuting = false;
+		//for (const auto& callback : mCommitCallbacks)
+		//	callback();
 
 		return allSuccess;
 	}
@@ -443,7 +454,7 @@ namespace core
 
 			// 3. 将对象放入序列（由于是后序，顺序是 [终端 -> 源头]）
 			result.push_back(curr);
-			};
+		};
 
 		for (auto* obj : dirtySet)
 			visit(obj);

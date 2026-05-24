@@ -75,9 +75,10 @@ namespace core
 		// --- 6. 事务支持 (Transaction) ---
 		void startTransaction();
 		void endTransaction();
+		
+		//void insertCommitCallback(std::function<void()> callback);
 		bool commit();
 		virtual bool run() = 0;
-		//bool execute() override;
 
 	private:
 		// --- 7. DAG支持 ---
@@ -94,6 +95,7 @@ namespace core
 		size_t mCnt;																// 用于生成新节点的计数器，确保每个新节点都有唯一的名称
 		int mTransactionCount;														// 当前事务计数，支持嵌套事务
 		bool mIsLoading;															// 标记当前是否处于加载状态，避免在 load 时触发不必要的事件
+		bool mIsExecuting;															// 标记当前是否正在执行 commit，避免重入
 
 		std::unordered_set<ObjectBase*> mPendingSet;								// 脏对象集合，使用 set 自动去重
 		std::unordered_set<ObjectBase*> mPendingLinks;								// 记录哪些对象的 Link 发生了变化，需要在 execute 时重新连线
@@ -102,5 +104,6 @@ namespace core
 		std::unordered_map<ObjectBase*, std::vector<ObjectBase*>> mOutGraph;		// 出边表：Source -> 被谁依赖 (用于传播“脏”信号)
 		std::unordered_map<ObjectBase*, std::vector<ObjectBase*>> mInGraph;			// 入边表：Sink -> 依赖谁 (用于删除对象时，快速找到它的“上游”)
 
+		//std::vector<std::function<void()>> mCommitCallbacks;						// 事务提交后的回调列表，允许外部注册在 commit 后执行的函数
 	};
 }

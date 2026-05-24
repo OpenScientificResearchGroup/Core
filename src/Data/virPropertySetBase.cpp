@@ -11,10 +11,10 @@
 
 namespace core
 {
-	PropertySetBase::PropertySetBase()
-		: PropertyContainerBase()
+	PropertySetBase::PropertySetBase(const std::string& name)
+		: PropertyContainerBase(), mName(name)
 	{
-		insertProperty<std::string>("property_set_name", "");
+		//insertProperty<std::string>("property_set_name", "");
 	}
 
 	ObjectType PropertySetBase::getObjectType() const
@@ -22,14 +22,15 @@ namespace core
 		return ObjectType::PROPERTY_SET;
 	}
 
-	void PropertySetBase::setName(const std::string& name)
-	{
-		updateProperty<std::string>("property_set_name", name);
-	}
+	//void PropertySetBase::setName(const std::string& name)
+	//{
+	//	mName = name;
+	//}
 
 	const std::string& PropertySetBase::getName() const
 	{
-		return selectProperty<std::string>("property_set_name")->get();
+		return mName;
+		//return selectProperty<std::string>("property_set_name")->get();
 	}
 
 	std::vector<std::string> PropertySetBase::getPath() const

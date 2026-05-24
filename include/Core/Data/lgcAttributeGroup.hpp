@@ -14,7 +14,12 @@ namespace core
 	class CORE_API AttributeGroup : public PropertySetBase
 	{
 	public:
-		AttributeGroup() = default;
+		AttributeGroup(const std::string& name)
+			: PropertySetBase(name)
+		{
+
+		}
+
 		virtual ~AttributeGroup() = default;
 
 	};

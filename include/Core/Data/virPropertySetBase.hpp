@@ -21,7 +21,7 @@ namespace core
 	class CORE_API PropertySetBase : public PropertyContainerBase
 	{
 	public:
-		PropertySetBase();
+		PropertySetBase(const std::string& name);
 		virtual ~PropertySetBase() = default;
 
 		ObjectType getObjectType() const override;
@@ -29,7 +29,7 @@ namespace core
 		//virtual bool read(const nlohmann::json& j) override;
 		//virtual nlohmann::json write() const override;
 
-		void setName(const std::string& name);
+		//void setName(const std::string& name);
 		const std::string& getName() const;
 
 		std::vector<std::string> getPath() const; // 获取属性在节点中的完整路径
@@ -88,6 +88,7 @@ namespace core
 		//virtual void detach() override;
 
 	protected:
+		std::string mName;									// 属性组名称
 		// PropertyContainerBase* mParent;					// 所属上一级
 
 		//std::unordered_map<std::string, std::unique_ptr<PropertyBase>> mProperties;			// 属性列表，支持任意类型的属性

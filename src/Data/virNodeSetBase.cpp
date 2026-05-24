@@ -46,11 +46,10 @@ namespace core
 			if (value.is_object())
 			{
 				std::unique_ptr<AttributeGroup> newAttributeGroup;
-				newAttributeGroup = std::make_unique<AttributeGroup>();
+				newAttributeGroup = std::make_unique<AttributeGroup>(key);
 				if (newAttributeGroup)
 				{
 					newAttributeGroup->setParent(this);
-					newAttributeGroup->setName(key);
 					newAttributeGroup->read(value);
 					mPropertySets[key] = std::move(newAttributeGroup);
 				}

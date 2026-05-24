@@ -177,6 +177,6 @@ namespace core
 
 	void NodeBase::markDirty(PropertyBase* property)
 	{
-		mDirtyProperties.push_back(property);
+		mDirtyProperties.push(property);
 	}
 }

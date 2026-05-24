@@ -10,6 +10,7 @@
 #include "virPropertyContainerBase.hpp"
 
 #include <string>
+#include <queue>
 
 #include <nlohmann/json.hpp>
 
@@ -92,7 +93,7 @@ namespace core
 		virtual bool execute() = 0;
 
 	protected:
-		std::vector<PropertyBase*> mDirtyProperties;	// 脏属性列表，记录哪些属性已修改但未同步
+		std::queue<PropertyBase*> mDirtyProperties;	// 脏属性列表，记录哪些属性已修改但未同步
 		//NodeBase* mParent; // 所属节点
 		//std::unordered_map<std::string, std::unique_ptr<PropertySetBase>> mPropertySets;
 
