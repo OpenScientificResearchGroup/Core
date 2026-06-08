@@ -34,7 +34,9 @@ namespace core
 		void shutdown();
 
 		void mount(const std::string& alias, const std::filesystem::path& physicalPath);
+		void unmount(const std::string& alias);
 		void registerLoader(const std::string& extension, std::function<std::shared_ptr<ResourceBase>(const std::filesystem::path&)> loader);
+		void unregisterLoader(const std::string& extension);
 		template <typename T>
 		std::shared_ptr<T> getRes(const std::string& logicalPath)
 		{

@@ -36,18 +36,33 @@ namespace core
 		shutdown();
 	}
 
-	bool UiManager::init(const std::string& title, const size_t& width, const size_t& height)
+	//bool UiManager::init(const std::string& title, const size_t& width, const size_t& height)
+	bool UiManager::init()
 	{
 		mFrame = nullptr;
-		mAuiMgr = nullptr;
+		//mAuiMgr = nullptr;
 		mNextId = wxID_HIGHEST + 1;
 
-		mFrame = new wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(width, height));
-		registerAnchor("/Core/main_frame", mFrame);
+		//mFrame = new wxFrame(nullptr, wxID_ANY, title, wxDefaultPosition, wxSize(width, height));
+		//mFrame->Bind(
+		//	wxEVT_DESTROY, [this](wxWindowDestroyEvent& event) {
+		//		// 窗口销毁时，先清理 AUI 管理器（因为它依赖窗口）
+		//		if (mAuiMgr)
+		//		{
+		//			mAuiMgr->UnInit();
+		//			delete mAuiMgr;
+		//			mAuiMgr = nullptr;
+		//		}
+		//		// 指针置空，防止后续 shutdownCore 访问野指针
+		//		this->mFrame = nullptr;
+		//		event.Skip();
+		//	}
+		//);
+		//registerAnchor("/Core/main_frame", mFrame);
 
-		mAuiMgr = new wxAuiManager();
-		mAuiMgr->SetManagedWindow(mFrame);
-		registerAnchor("/Core/aui_manager", mAuiMgr);
+		//mAuiMgr = new wxAuiManager();
+		//mAuiMgr->SetManagedWindow(mFrame);
+		//registerAnchor("/Core/aui_manager", mAuiMgr);
 
 		return true;
 	}
@@ -55,12 +70,12 @@ namespace core
 	void UiManager::shutdown()
 	{
 		// 先断开 AUI 管理
-		if (mAuiMgr)
-		{
-			mAuiMgr->UnInit();
-			delete mAuiMgr;
-			mAuiMgr = nullptr;
-		}
+		//if (mAuiMgr)
+		//{
+		//	mAuiMgr->UnInit();
+		//	delete mAuiMgr;
+		//	mAuiMgr = nullptr;
+		//}
 
 		// 如果 mFrame 是在这个类里 new 出来的，且没有交给 wxApp 的 TopWindow 管理，
 		// 这里可能需要 Destroy。但通常 Frame 由 wxApp 管理，这里置空即可。
@@ -89,15 +104,20 @@ namespace core
 		if (mFrame) mFrame->Close();
 	}
 
+	void UiManager::setRootWindow(wxFrame* frame)
+	{
+		mFrame = frame;
+	}
+
 	wxFrame* UiManager::getRootWindow() const
 	{
 		return mFrame;
 	}
 
-	wxAuiManager* UiManager::getAuiManager() const
-	{
-		return mAuiMgr;
-	}
+	//wxAuiManager* UiManager::getAuiManager() const
+	//{
+	//	return mAuiMgr;
+	//}
 
 	void UiManager::registerAnchor(const std::string& anchorId, wxObject* obj)
 	{
@@ -148,80 +168,81 @@ namespace core
 		}
 	}
 
-	void UiManager::saveLayoutToJson(const std::string& jsonFilePath)
-	{
-		if (!mAuiMgr || !mFrame) return;
+	//void UiManager::saveLayoutToJson(const std::string& jsonFilePath)
+	//{
+	//	//if (!mAuiMgr || !mFrame) return;
+	//	if (!mFrame) return;
 
-		std::string perspective = mAuiMgr->SavePerspective().ToStdString();
+	//	std::string perspective = mAuiMgr->SavePerspective().ToStdString();
 
-		int w, h;
-		mFrame->GetSize(&w, &h);
-		bool isMax = mFrame->IsMaximized();
+	//	int w, h;
+	//	mFrame->GetSize(&w, &h);
+	//	bool isMax = mFrame->IsMaximized();
 
-		nlohmann::json j;
-		j["app_name"] = "App";
-		j["version"] = "1.0";
-		j["window"] = {
-			{"width", w},
-			{"height", h},
-			{"maximized", isMax}
-		};
-		j["layout_perspective"] = perspective;
+	//	nlohmann::json j;
+	//	j["app_name"] = "App";
+	//	j["version"] = "1.0";
+	//	j["window"] = {
+	//		{"width", w},
+	//		{"height", h},
+	//		{"maximized", isMax}
+	//	};
+	//	j["layout_perspective"] = perspective;
 
-		try
-		{
-			std::ofstream o(jsonFilePath);
-			o << std::setw(4) << j << std::endl;
-			APP_LOG_INFO("[Ui Manager]: Layout is saved to {}", jsonFilePath);
-		}
-		catch (const std::exception& e)
-		{
-			APP_LOG_ERROR("[Ui Manager]: Layout save failed: {}", e.what());
-		}
-	}
+	//	try
+	//	{
+	//		std::ofstream o(jsonFilePath);
+	//		o << std::setw(4) << j << std::endl;
+	//		APP_LOG_INFO("[Ui Manager]: Layout is saved to {}", jsonFilePath);
+	//	}
+	//	catch (const std::exception& e)
+	//	{
+	//		APP_LOG_ERROR("[Ui Manager]: Layout save failed: {}", e.what());
+	//	}
+	//}
 
-	void UiManager::loadLayoutFromJson(const std::string& jsonFilePath)
-	{
-		if (!mAuiMgr || !mFrame) return;
+	//void UiManager::loadLayoutFromJson(const std::string& jsonFilePath)
+	//{
+	//	if (!mAuiMgr || !mFrame) return;
 
-		//if (mDefaultPerspective.empty())
-		//	mDefaultPerspective = mAuiMgr->SavePerspective().ToStdString();
+	//	//if (mDefaultPerspective.empty())
+	//	//	mDefaultPerspective = mAuiMgr->SavePerspective().ToStdString();
 
-		std::ifstream i(jsonFilePath);
-		if (!i.good())
-		{
-			APP_LOG_ERROR("[Ui Manager]: Layout file not found, using default.");
-			return;
-		}
+	//	std::ifstream i(jsonFilePath);
+	//	if (!i.good())
+	//	{
+	//		APP_LOG_ERROR("[Ui Manager]: Layout file not found, using default.");
+	//		return;
+	//	}
 
-		try
-		{
-			nlohmann::json j;
-			i >> j;
+	//	try
+	//	{
+	//		nlohmann::json j;
+	//		i >> j;
 
-			if (j.contains("window"))
-			{
-				auto& win = j["window"];
-				if (win.value("maximized", false))
-					mFrame->Maximize();
-				else
-					mFrame->SetSize(win.value("width", 800), win.value("height", 600));
-			}
+	//		if (j.contains("window"))
+	//		{
+	//			auto& win = j["window"];
+	//			if (win.value("maximized", false))
+	//				mFrame->Maximize();
+	//			else
+	//				mFrame->SetSize(win.value("width", 800), win.value("height", 600));
+	//		}
 
-			if (j.contains("layout_perspective"))
-			{
-				std::string perspective = j["layout_perspective"];
-				mAuiMgr->LoadPerspective(perspective);
-			}
+	//		if (j.contains("layout_perspective"))
+	//		{
+	//			std::string perspective = j["layout_perspective"];
+	//			mAuiMgr->LoadPerspective(perspective);
+	//		}
 
-			APP_LOG_INFO("[Ui Manager]: Layout loaded successfully.");
+	//		APP_LOG_INFO("[Ui Manager]: Layout loaded successfully.");
 
-		}
-		catch (const std::exception& e)
-		{
-			APP_LOG_ERROR("[Ui Manager]: Failed to load layout from JSON: {}, using default.", e.what());
-		}
-	}
+	//	}
+	//	catch (const std::exception& e)
+	//	{
+	//		APP_LOG_ERROR("[Ui Manager]: Failed to load layout from JSON: {}, using default.", e.what());
+	//	}
+	//}
 
 	size_t UiManager::getId(const std::string& name)
 	{

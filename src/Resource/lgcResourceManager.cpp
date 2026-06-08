@@ -51,10 +51,31 @@ namespace core
 		APP_LOG_INFO("[Resource Manager]: Mounted '{}' -> {}", cleanAlias, mAliases[cleanAlias].string());
 	}
 
+	void ResourceManager::unmount(const std::string& alias)
+	{
+		std::unique_lock<std::shared_mutex> lock(mAliasMutex);
+
+		// 规范化别名：去掉末尾的 "://" 或 ":"
+		std::string cleanAlias = alias;
+		if (cleanAlias.length() >= 3 && cleanAlias.substr(cleanAlias.length() - 3) == "://")
+			cleanAlias.resize(cleanAlias.length() - 3);
+		else if (!cleanAlias.empty() && cleanAlias.back() == ':')
+			cleanAlias.pop_back();
+
+		mAliases.erase(cleanAlias);
+		APP_LOG_INFO("[Resource Manager]: Unmounted '{}'", cleanAlias);
+	}
+
 	void ResourceManager::registerLoader(const std::string& extension, std::function<std::shared_ptr<ResourceBase>(const std::filesystem::path&)> loader)
 	{
 		std::unique_lock<std::shared_mutex> lock(mLoaderMutex);
 		mLoaders[extension] = loader;
+	}
+
+	void ResourceManager::unregisterLoader(const std::string& extension)
+	{
+		std::unique_lock<std::shared_mutex> lock(mLoaderMutex);
+		mLoaders.erase(extension);
 	}
 
 	std::optional<std::filesystem::path> ResourceManager::resolvePath(const std::string& logicalPath) const

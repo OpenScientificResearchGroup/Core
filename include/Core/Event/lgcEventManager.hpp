@@ -154,7 +154,7 @@ namespace core
 
 		// 模板版：有参发布
 		template <typename EventType>
-		void publish(const std::string& topic, const EventType& event, size_t excludedId = 0)
+		void publish(const std::string& topic, const EventType& event, const bool isAsync = true, size_t excludedId = 0)
 		{
 			std::vector<std::function<void(const EventType&)>> callbacks;
 			{
@@ -173,15 +173,21 @@ namespace core
 
 			if (callbacks.empty()) return;
 
-			// 异步分发 (模拟原有的 TaskManager)
+			if (!isAsync)
+			{
+				for (auto& cb : callbacks) cb();
+				return;
+			}
+			// 异步分发
 			EventType copiedEvent = event;
 			TaskManager::get().add(Priority::NORMAL, [callbacks = std::move(callbacks), copiedEvent = std::move(copiedEvent)]() mutable {
 				for (auto& cb : callbacks) cb(copiedEvent);
 				});
+			return;
 		}
 
 		// 重载版：无参发布
-		void publish(const std::string& topic, size_t excludedId = 0)
+		void publish(const std::string& topic, const bool isAsync = true, size_t excludedId = 0)
 		{
 			std::vector<std::function<void()>> callbacks;
 			{
@@ -200,29 +206,35 @@ namespace core
 
 			if (callbacks.empty()) return;
 
+			if (!isAsync)
+			{
+				for (auto& cb : callbacks) cb();
+				return;
+			}
 			TaskManager::get().add(Priority::NORMAL, [callbacks = std::move(callbacks)]() mutable {
 				for (auto& cb : callbacks) cb();
 				});
+			return;
 		}
 
 		// 4. 【关键修复】无参发布：针对字符串字面量的重载
 		// 当你调用 publish("/path") 时，此函数是“非模板精确匹配”，会优于模板版本
-		void publish(const char* topic, size_t excludedId = 0)
+		void publish(const char* topic, const bool isAsync = true, size_t excludedId = 0)
 		{
 			// 直接转发给 std::string 版本
-			publish(std::string(topic), excludedId);
+			publish(std::string(topic), isAsync, excludedId);
 		}
 
 		// 缺省 Topic 包装
 		template <typename EventType>
-		void publish(const EventType& event, size_t excludedId = 0)
+		void publish(const EventType& event, const bool isAsync = true, size_t excludedId = 0)
 		{
-			publish<EventType>("", event, excludedId);
+			publish<EventType>("", event, isAsync, excludedId);
 		}
 
-		void publish(size_t excludedId = 0)
+		void publish(const bool isAsync = true, size_t excludedId = 0)
 		{
-			publish("", excludedId);
+			publish("", isAsync, excludedId);
 		}
 
 

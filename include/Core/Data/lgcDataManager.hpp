@@ -56,6 +56,7 @@ namespace core
 
 		bool add(std::unique_ptr<DocumentBase> doc);
 		bool remove(const std::string& uuid);
+        bool removeActive();
 		void removeAll();
 		void setActive(const std::string& uuid);
 		DocumentBase* getActive() const;

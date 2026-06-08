@@ -61,12 +61,12 @@ namespace core
 
 	bool DocumentBase::save(const std::string& path)
 	{
-		
 		if (!path.empty()) mPath = path;
 		nlohmann::json file = write();
 		std::ofstream ofs(mPath);
 		if (!ofs.is_open()) return false;
 		ofs << file.dump();
+		mIsDirty = false; // 保存后文档不再脏了
 		return true; // 成功
 	}
 
@@ -214,6 +214,7 @@ namespace core
 	{
 		if (mPendingSet.empty() || mIsExecuting) return true;
 		mIsExecuting = true; // 开启守卫，拦截所有重入请求
+		mIsDirty = true; // 标记文档已修改，等待保存
 		bool allSuccess = true;
 
 		while (!mPendingSet.empty()/* && iterations < mMaxIterations*/)
@@ -285,6 +286,11 @@ namespace core
 		//	callback();
 
 		return allSuccess;
+	}
+
+	bool DocumentBase::isDirty() const
+	{
+		return mIsDirty;
 	}
 
 	bool DocumentBase::insertDagNode(ObjectBase* obj)

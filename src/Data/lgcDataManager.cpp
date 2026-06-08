@@ -76,6 +76,11 @@ namespace core
 		return true;
 	}
 
+    bool DataManager::removeActive()
+    {
+        return remove(mActiveDocUuid);
+    }
+
 	void DataManager::removeAll()
 	{
 		{
@@ -94,7 +99,7 @@ namespace core
 		{
 			std::shared_lock<std::shared_mutex> lock(mMutex);
 
-			if (mActiveDocUuid == uuid || uuid.empty()) return;
+			if (mActiveDocUuid == uuid) return;
 			//if (!mActiveDocUuid.empty())
 			//{
 			//	auto it = mDocs.find(mActiveDocUuid);
@@ -108,9 +113,10 @@ namespace core
 			//		newDoc = it->second;
 			//}
 			auto it = mDocs.find(uuid);
-			if (it == mDocs.end()) return;
+            // 如果目标 UUID 不存在且文档列表不为空，保持当前活动文档不变
+            if (it == mDocs.end() && !mDocs.empty()) return;
 
-			//if (!uuid.empty() && !newDoc) return;
+            //if (!uuid.empty() && !newDoc) return;
 		}
 		{
 			std::unique_lock<std::shared_mutex> lock(mMutex);

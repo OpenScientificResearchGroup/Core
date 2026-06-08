@@ -30,13 +30,16 @@ namespace core
 		UiManager(const UiManager&) = delete;
 		UiManager& operator=(const UiManager&) = delete;
 
-		bool init(const std::string& title, const size_t& width = 800, const size_t& height = 600);
+		//bool init(const std::string& title, const size_t& width = 800, const size_t& height = 600);
+		bool init();
 		void shutdown();
 
 		void show();
 		void close();
+		void setRootWindow(wxFrame* frame);
+		//void setAuiManager(wxAuiManager* auiMgr);
 		wxFrame* getRootWindow() const;
-		wxAuiManager* getAuiManager() const;
+		//wxAuiManager* getAuiManager() const;
 
 		/// ===============================================
 		/// Anchor Management
@@ -58,13 +61,13 @@ namespace core
 
 		void refreshAnchorLayout(const std::string& anchorId);
 
-		/// ===============================================
-		/// Layout Management
-		/// ===============================================
+		///// ===============================================
+		///// Layout Management
+		///// ===============================================
 
-		void loadLayoutFromJson(const std::string& jsonFilePath);
+		//void loadLayoutFromJson(const std::string& jsonFilePath);
 
-		void saveLayoutToJson(const std::string& jsonFilePath);
+		//void saveLayoutToJson(const std::string& jsonFilePath);
 
 		/// ===============================================
 		/// ID Management
@@ -84,7 +87,7 @@ namespace core
 
 	private:
 		wxFrame* mFrame;
-		wxAuiManager* mAuiMgr;
+		//wxAuiManager* mAuiMgr;
 
 		// 考虑读多写少
 		mutable std::shared_mutex mAnchorMutex;

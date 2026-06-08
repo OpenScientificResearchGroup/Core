@@ -43,13 +43,14 @@ namespace core
 		EventManager::get().init();
 		I18nManager::get().init(ConfigManager::get().getValue<std::string>("/Core/i18n/locale"));
 		ResourceManager::get().init();
-		UiManager::get().init(appName);
+		//UiManager::get().init(appName);
+		UiManager::get().init();
 		PluginManager::get().init(corePluginsDir, userPluginsDir);
 	}
 
 	void shutdownCore()
 	{
-		PluginManager::get().shutdown();
+		//PluginManager::get().shutdown();
 		UiManager::get().shutdown();
 		ResourceManager::get().shutdown();
 		I18nManager::get().shutdown();
@@ -57,6 +58,8 @@ namespace core
 		DataManager::get().shutdown();
 		ServiceManager::get().shutdown();
 		TaskManager::get().shutdown();
+		ConfigManager::get().shutdown();
+		PluginManager::get().shutdown(); // must put at here
 		LogManager::shutdown();
 	}
 }

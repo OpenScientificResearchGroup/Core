@@ -80,6 +80,8 @@ namespace core
 		bool commit();
 		virtual bool run() = 0;
 
+		bool isDirty() const;
+
 	private:
 		// --- 7. DAG支持 ---
 		bool insertDagNode(ObjectBase* obj);
@@ -89,6 +91,8 @@ namespace core
 		
 		bool isCycle(ObjectBase* source, ObjectBase* sink);
 		std::vector<ObjectBase*> calculateEvaluationOrder(const std::unordered_set<ObjectBase*>& dirtySet);
+
+		bool mIsDirty;																// 文档是否有未保存的更改
 
 		std::string mPath;															// 当前文档路径，保存时更新
 		core::CommandManager mCommandManager;										// 命令管理器，用于处理撤销/重做等操作
