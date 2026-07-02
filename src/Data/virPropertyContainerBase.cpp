@@ -33,7 +33,7 @@ namespace core
 				if (value.is_object())
 				{
 					std::unique_ptr<AttributeGroup> newAttributeGroup;
-					newAttributeGroup = std::make_unique<AttributeGroup>(key);
+					newAttributeGroup = std::make_unique<AttributeGroup>(this, key);
 					if (newAttributeGroup)
 					{
 						newAttributeGroup->setParent(this);
@@ -45,13 +45,17 @@ namespace core
 				{
 					std::unique_ptr<PropertyBase> newAttribute;
 					if (value.is_boolean())
-						newAttribute = std::make_unique<Attribute<bool>>(this, key, false);
+						//newAttribute = std::make_unique<Attribute<bool>>(this, key, false);
+						newAttribute = std::make_unique<Attribute<bool>>(this, key);
 					else if (value.is_number_integer())
-						newAttribute = std::make_unique<Attribute<int>>(this, key, 0);
+						//newAttribute = std::make_unique<Attribute<int>>(this, key, 0);
+						newAttribute = std::make_unique<Attribute<int>>(this, key);
 					else if (value.is_number_float())
-						newAttribute = std::make_unique<Attribute<double>>(this, key, .0f);
+						//newAttribute = std::make_unique<Attribute<double>>(this, key, .0f);
+						newAttribute = std::make_unique<Attribute<double>>(this, key);
 					else if (value.is_string())
-						newAttribute = std::make_unique<Attribute<std::string>>(this, key, "");
+						//newAttribute = std::make_unique<Attribute<std::string>>(this, key, "");
+						newAttribute = std::make_unique<Attribute<std::string>>(this, key);
 
 					if (newAttribute)
 					{
@@ -161,7 +165,10 @@ namespace core
 		auto it = mPropertySets.find(propertySet->getName());
 		if (it != mPropertySets.end())
 			return false; // 属性组已存在，不添加
-		mPropertySets[propertySet->getName()] = std::move(propertySet);
+        //propertySet->attach(); // 插入后立即 attach
+        std::string name = propertySet->getName();
+        mPropertySets[name] = std::move(propertySet);
+		mPropertySets[name]->attach();
 		return true;
 	}
 
@@ -178,6 +185,7 @@ namespace core
 		auto it = mPropertySets.find(name);
 		if (it == mPropertySets.end())
 			return false;
+		it->second->detach(); // 删除前先 detach
 		mPropertySets.erase(it);
 		return true;
 	}
@@ -187,6 +195,7 @@ namespace core
 		auto it = mProperties.find(key);
 		if (it == mProperties.end())
 			return false;
+		it->second->detach(); // 删除前先 detach
 		mProperties.erase(it);
 		return true;
 	}

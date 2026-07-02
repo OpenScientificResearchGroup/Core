@@ -17,6 +17,12 @@ namespace core
 	class Attribute : public Property<T>
 	{
 	public:
+        Attribute(PropertyContainerBase* node, const std::string& key)
+			: Property<T>(node, key)
+		{
+
+		}
+
 		Attribute(PropertyContainerBase* node, const std::string& key, const T& val)
 			: Property<T>(node, key, val)
 		{

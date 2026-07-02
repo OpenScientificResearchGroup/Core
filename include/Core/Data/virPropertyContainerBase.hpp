@@ -44,14 +44,27 @@ namespace core
 		bool deletePropertySet(const std::string& name);
 
 		template <typename T>
+		bool insertProperty(const std::string& key)
+		{
+			auto it = mProperties.find(key);
+			if (it != mProperties.end())
+				return false; // 属性已存在，不添加
+			auto prop = std::make_unique<Property<T>>(this, key);
+			mProperties[key] = std::move(prop);
+			return true;
+		}
+
+		template <typename T>
 		bool insertProperty(const std::string& key, const T& value)
 		{
 			auto it = mProperties.find(key);
 			if (it != mProperties.end())
 				return false; // 属性已存在，不添加
 			auto prop = std::make_unique<Property<T>>(this, key, value);
-			mProperties[key] = std::move(prop);
-			return true;
+			//prop->attach(); // 插入后立即 attach
+            mProperties[key] = std::move(prop);
+            mProperties[key]->attach();
+            return true;
 		}
 
 		template <typename T>

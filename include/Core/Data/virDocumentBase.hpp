@@ -51,7 +51,7 @@ namespace core
 
 		// --- 2. 全局索引 (Fast Lookup) ---
 		// 允许任何命令通过 UUID 快速定位节点，无需遍历整棵树
-		NodeBase* findNode(const std::string& uuid) const;
+		NodeBase* findNodeByUuid(const std::string& uuid) const;
 
 		// --- 3. 命名管理 ---
 		// 生成如 "Part_1", "Part_2" 的默认名称

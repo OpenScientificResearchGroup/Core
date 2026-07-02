@@ -46,7 +46,7 @@ namespace core
 			if (value.is_object())
 			{
 				std::unique_ptr<AttributeGroup> newAttributeGroup;
-				newAttributeGroup = std::make_unique<AttributeGroup>(key);
+				newAttributeGroup = std::make_unique<AttributeGroup>(this, key);
 				if (newAttributeGroup)
 				{
 					newAttributeGroup->setParent(this);
@@ -58,15 +58,19 @@ namespace core
 			{
 				std::unique_ptr<PropertyBase> newAttribute;
 				if (value.is_boolean())
-					newAttribute = std::make_unique<Attribute<bool>>(this, key, false);
-				else if (value.is_number_integer())
-					newAttribute = std::make_unique<Attribute<int>>(this, key, 0);
-				else if (value.is_number_float())
-					newAttribute = std::make_unique<Attribute<double>>(this, key, .0f);
-				else if (value.is_string())
-					newAttribute = std::make_unique<Attribute<std::string>>(this, key, "");
+                    //newAttribute = std::make_unique<Attribute<bool>>(this, key, false);
+                    newAttribute = std::make_unique<Attribute<bool>>(this, key);
+                else if (value.is_number_integer())
+                    //newAttribute = std::make_unique<Attribute<int>>(this, key, 0);
+                    newAttribute = std::make_unique<Attribute<int>>(this, key);
+                else if (value.is_number_float())
+                    //newAttribute = std::make_unique<Attribute<double>>(this, key, .0f);
+                    newAttribute = std::make_unique<Attribute<double>>(this, key);
+                else if (value.is_string())
+                    //newAttribute = std::make_unique<Attribute<std::string>>(this, key, "");
+                    newAttribute = std::make_unique<Attribute<std::string>>(this, key);
 
-				if (newAttribute)
+                if (newAttribute)
 				{
 					newAttribute->read(value);
 					mProperties[key] = std::move(newAttribute);
@@ -133,8 +137,11 @@ namespace core
 		auto it = mNodes.find(node->getUuid());
 		if (it != mNodes.end())
 			return false; // 节点已存在，不添加
-		node->setParent(this);
-		mNodes[node->getUuid()] = std::move(node);
+		//node->setParent(this);
+        //node->attach();
+        std::string uuid = node->getUuid();
+        mNodes[uuid] = std::move(node);
+        mNodes[uuid]->attach();
 		return true;
 	}
 
@@ -143,8 +150,9 @@ namespace core
 		auto it = mNodes.find(uuid);
 		if (it == mNodes.end())
 			return false;
-		mNodes.erase(it);
-		return true;
+        it->second->detach();
+        mNodes.erase(it);
+        return true;
 	}
 
 	const std::unordered_map<std::string, std::unique_ptr<NodeSetBase>>& NodeSetBase::getNodeSets() const
@@ -157,9 +165,12 @@ namespace core
 		auto it = mNodeSets.find(nodeSet->getUuid());
 		if (it != mNodeSets.end())
 			return false; // 节点已存在，不添加
-		nodeSet->setParent(this);
-		mNodeSets[nodeSet->getUuid()] = std::move(nodeSet);
-		return true;
+		//nodeSet->setParent(this);
+        //nodeSet->attach();
+        std::string uuid = nodeSet->getUuid();
+        mNodeSets[uuid] = std::move(nodeSet);
+        mNodeSets[uuid]->attach();
+        return true;
 	}
 
 	bool NodeSetBase::deleteNodeSet(const std::string& uuid)
@@ -167,7 +178,8 @@ namespace core
 		auto it = mNodeSets.find(uuid);
 		if (it == mNodeSets.end())
 			return false;
-		mNodeSets.erase(it);
+        it->second->detach();
+        mNodeSets.erase(it);
 		return true;
 	}
 }

@@ -17,11 +17,15 @@ namespace core
 		:PropertyContainerBase()
 	{
 		// NodeBase 只通过父节点链传递事件，不保存 Document 指针。
-		insertProperty<std::string>("uuid", "");
-		insertProperty<std::string>("name", "");
-		insertProperty<std::string>("type", "");
-		insertProperty<unsigned long long>("timestamp", 0);
-	}
+		// insertProperty<std::string>("uuid", "");
+		// insertProperty<std::string>("name", "");
+		// insertProperty<std::string>("type", "");
+		// insertProperty<unsigned long long>("timestamp", 0);
+        insertProperty<std::string>("uuid");
+        insertProperty<std::string>("name");
+        insertProperty<std::string>("type");
+        insertProperty<unsigned long long>("timestamp");
+    }
 
 	ObjectType NodeBase::getObjectType() const
 	{

@@ -14,10 +14,10 @@ namespace core
 	class CORE_API AttributeGroup : public PropertySetBase
 	{
 	public:
-		AttributeGroup(const std::string& name)
+		AttributeGroup(ObjectBase* parent, const std::string& name)
 			: PropertySetBase(name)
 		{
-
+			setParent(parent);
 		}
 
 		virtual ~AttributeGroup() = default;

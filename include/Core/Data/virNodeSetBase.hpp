@@ -59,7 +59,7 @@ namespace core
 		bool deleteNodeSet(const std::string& uuid);
 
 		template <typename T>
-		T* findNode(const std::vector<std::string>& path)
+		T* findNodeByPath(const std::vector<std::string>& path)
 		{
 			if (path.empty())
 				return dynamic_cast<T*>(this);

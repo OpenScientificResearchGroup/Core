@@ -18,16 +18,22 @@ namespace core
 	{
 	public:
 		// 构造函数：必须显式初始化基类
+		Property(PropertyContainerBase* node, const std::string& key)
+			: PropertyBase(node, key), mVal() // 使用默认构造函数初始化值
+		{
+
+		}
+
 		Property(PropertyContainerBase* node, const std::string& key, const T& val)
 			: PropertyBase(node, key), mVal(val)
 		{
-
+			update();
 		}
 
 		Property(PropertyContainerBase* node, const std::string& key, T&& val)
 			: PropertyBase(node, key), mVal(std::move(val))
 		{
-
+			update();
 		}
 
 		virtual ~Property() = default;

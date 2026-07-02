@@ -75,7 +75,7 @@ namespace core
 		return mPath;
 	}
 
-	NodeBase* DocumentBase::findNode(const std::string& uuid) const
+	NodeBase* DocumentBase::findNodeByUuid(const std::string& uuid) const
 	{
 		auto it = mNodeIndex.find(uuid);
 		if (it != mNodeIndex.end())
